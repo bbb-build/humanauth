@@ -11,6 +11,6 @@ export default defineConfig([
     entry: { react: "humanauth-react.tsx" },
     format: ["cjs", "esm"],
     dts: true,
-    external: ["react"],
+    external: ["react", "@worldcoin/idkit", "@worldcoin/idkit-core"],
   },
 ]);

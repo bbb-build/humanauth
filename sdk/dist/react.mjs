@@ -1,5 +1,4 @@
 "use client";
-import "./chunk-6DZX6EAA.mjs";
 
 // humanauth-react.tsx
 import { useState, useCallback, useEffect } from "react";
@@ -42,7 +41,7 @@ function HumanAuth({
   }
   async function loadIdkit() {
     try {
-      const mod = await import("./dist-EEKPRPOL.mjs");
+      const mod = await import("@worldcoin/idkit");
       setIdkitModule({
         IDKitRequestWidget: mod.IDKitRequestWidget,
         useIDKitRequest: mod.useIDKitRequest,

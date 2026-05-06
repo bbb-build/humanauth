@@ -1,6 +1,6 @@
 {
   "name": "humanauth-sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "HumanAuth SDK — World ID verification as a service",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -39,10 +39,14 @@
     "url": "https://github.com/bbb-build/humanauth"
   },
   "peerDependencies": {
-    "react": ">=18.0.0"
+    "react": ">=18.0.0",
+    "@worldcoin/idkit": ">=4.0.0"
   },
   "peerDependenciesMeta": {
     "react": {
+      "optional": true
+    },
+    "@worldcoin/idkit": {
       "optional": true
     }
   },
