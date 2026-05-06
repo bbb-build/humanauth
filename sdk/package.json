@@ -1,0 +1,45 @@
+{
+  "name": "@humanauth/sdk",
+  "version": "0.1.0",
+  "description": "HumanAuth SDK — World ID verification as a service",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./react": {
+      "import": "./dist/react.mjs",
+      "require": "./dist/react.js",
+      "types": "./dist/react.d.ts"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsup",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": ["world-id", "authentication", "humanauth", "proof-of-humanity", "world-chain"],
+  "author": "BBB&Company",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bbb-build/humanauth"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0",
+    "@types/react": "^19.0.0"
+  }
+}

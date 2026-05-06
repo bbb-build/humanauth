@@ -1,0 +1,16 @@
+import { defineConfig } from "tsup";
+
+export default defineConfig([
+  {
+    entry: { index: "src/index.ts" },
+    format: ["cjs", "esm"],
+    dts: true,
+    clean: true,
+  },
+  {
+    entry: { react: "humanauth-react.tsx" },
+    format: ["cjs", "esm"],
+    dts: true,
+    external: ["react"],
+  },
+]);
