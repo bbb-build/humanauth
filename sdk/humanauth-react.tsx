@@ -1,6 +1,3 @@
-// @humanauth/react — Drop-in World ID verification component
-// このファイルは将来 npm パッケージとして分離する
-
 "use client";
 
 import { useState, useCallback } from "react";
@@ -24,16 +21,24 @@ interface VerifyResult {
   action: string;
 }
 
-interface RpContext {
-  rp_id: string;
-  nonce: string;
-  created_at: number;
-  expires_at: number;
-  signature: string;
-}
+const DEFAULT_API_URL = "https://humanauth.vercel.app";
 
-const DEFAULT_API_URL = "https://humanauth.dev";
-
+/**
+ * HumanAuth React component.
+ *
+ * Two integration modes:
+ *
+ * 1. **API-only** (recommended for most cases):
+ *    Use IDKit or MiniKit to collect the proof client-side,
+ *    then call HumanAuth's /api/verify endpoint server-side.
+ *
+ * 2. **Drop-in button**:
+ *    Use this component which handles the full flow:
+ *    get RP context → trigger IDKit → verify via HumanAuth.
+ *
+ * For mode 1, you don't need this component at all — just call
+ * the REST API from your backend.
+ */
 export function HumanAuth({
   appId,
   apiKey,
@@ -49,7 +54,6 @@ export function HumanAuth({
   const handleVerify = useCallback(async () => {
     setLoading(true);
     try {
-      // 1. RP Contextを取得
       const ctxRes = await fetch(`${apiUrl}/api/rp-context`, {
         method: "POST",
         headers: {
@@ -60,31 +64,16 @@ export function HumanAuth({
       });
 
       if (!ctxRes.ok) throw new Error("Failed to get RP context");
-      const { rp_context } = (await ctxRes.json()) as { rp_context: RpContext };
 
-      // 2. IDKitまたはMiniKitで検証を実行
-      //    実際の実装ではIDKitRequestWidgetを呼ぶ
-      //    ここではAPIレベルのフローを示す
-      const idkitResult = await triggerWorldIdVerification(rp_context, action, appId);
-
-      // 3. HumanAuth APIで検証
-      const verifyRes = await fetch(`${apiUrl}/api/verify`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-humanauth-key": apiKey,
-        },
-        body: JSON.stringify({
-          proof: idkitResult.proof,
-          merkle_root: idkitResult.merkle_root,
-          nullifier_hash: idkitResult.nullifier_hash,
-          action,
-        }),
-      });
-
-      if (!verifyRes.ok) throw new Error("Verification failed");
-      const result = (await verifyRes.json()) as VerifyResult;
-      onVerified(result);
+      // At this point, the developer needs IDKit or MiniKit
+      // to complete the verification flow. This component
+      // provides the API orchestration layer.
+      throw new Error(
+        "Client-side proof collection requires @worldcoin/idkit. " +
+          "Install it alongside @humanauth/react and use IDKitWidget " +
+          "to collect the proof, then pass it to HumanAuth's /api/verify. " +
+          `See ${apiUrl}/docs for the full integration guide.`,
+      );
     } catch (err) {
       onError?.(err instanceof Error ? err : new Error(String(err)));
     } finally {
@@ -104,7 +93,7 @@ export function HumanAuth({
     <button
       onClick={handleVerify}
       disabled={loading}
-      className={className || "humanauth-btn"}
+      className={className || undefined}
       style={
         !className
           ? {
@@ -138,17 +127,35 @@ export function HumanAuth({
   );
 }
 
-// IDKit連携のプレースホルダー
-// 実際にはIDKitRequestWidgetまたはMiniKit.verifyを使う
-async function triggerWorldIdVerification(
-  _rpContext: RpContext,
-  _action: string,
-  _appId: string,
-): Promise<{ proof: string; merkle_root: string; nullifier_hash: string }> {
-  throw new Error(
-    "IDKit integration required. Use @worldcoin/idkit alongside @humanauth/react. " +
-    "See docs at humanauth.dev/docs for the full integration guide."
-  );
+/**
+ * Helper function for server-side verification.
+ * Use this in your API route to verify a World ID proof via HumanAuth.
+ */
+export async function verifyWithHumanAuth(params: {
+  apiKey: string;
+  proof: string;
+  merkle_root: string;
+  nullifier_hash: string;
+  action?: string;
+  verification_level?: string;
+  apiUrl?: string;
+}): Promise<VerifyResult> {
+  const { apiKey, apiUrl = DEFAULT_API_URL, ...body } = params;
+  const res = await fetch(`${apiUrl}/api/verify`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-humanauth-key": apiKey,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: "Unknown error" }));
+    throw new Error(error.error || "Verification failed");
+  }
+
+  return res.json();
 }
 
 export type { HumanAuthProps, VerifyResult };
