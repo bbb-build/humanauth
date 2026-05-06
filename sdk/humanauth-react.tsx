@@ -88,9 +88,9 @@ export function HumanAuth({
     try {
       const mod = await import("@worldcoin/idkit");
       setIdkitModule({
-        IDKitRequestWidget: mod.IDKitRequestWidget as React.ComponentType<Record<string, unknown>>,
-        useIDKitRequest: mod.useIDKitRequest as (config: Record<string, unknown>) => { open: () => void; isOpen: boolean; reset: () => void },
-        orbLegacy: mod.orbLegacy as () => unknown,
+        IDKitRequestWidget: mod.IDKitRequestWidget as unknown as React.ComponentType<Record<string, unknown>>,
+        useIDKitRequest: mod.useIDKitRequest as unknown as (config: Record<string, unknown>) => { open: () => void; isOpen: boolean; reset: () => void },
+        orbLegacy: mod.orbLegacy as unknown as () => unknown,
       });
     } catch {
       // IDKit not installed — fall back to API-only mode
