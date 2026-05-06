@@ -75,7 +75,7 @@ export default function LandingPage() {
             <span className="ml-2 text-xs text-[var(--text-tertiary)]">App.tsx</span>
           </div>
           <pre className="overflow-x-auto p-6 text-sm leading-relaxed">
-            <code>{`import { HumanAuth } from "@humanauth/react";
+            <code>{`import { HumanAuth } from "humanauth-sdk/react";
 
 function App() {
   return (

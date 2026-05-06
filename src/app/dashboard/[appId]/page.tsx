@@ -191,10 +191,10 @@ export default function AppDetailPage() {
               <h3 className="mb-4 font-semibold">Quick Start</h3>
               <pre className="overflow-x-auto rounded-lg bg-[var(--bg-primary)] p-4 text-sm leading-relaxed">
                 <code>{`// 1. Install
-npm install @humanauth/react @worldcoin/idkit
+npm install humanauth-sdk/react @worldcoin/idkit
 
 // 2. Use
-import { HumanAuth } from "@humanauth/react";
+import { HumanAuth } from "humanauth-sdk/react";
 
 <HumanAuth
   appId="${app.rp_id}"

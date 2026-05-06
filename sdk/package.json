@@ -1,5 +1,5 @@
 {
-  "name": "@humanauth/sdk",
+  "name": "humanauth-sdk",
   "version": "0.1.0",
   "description": "HumanAuth SDK — World ID verification as a service",
   "main": "dist/index.js",
@@ -7,22 +7,31 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.js"
     },
     "./react": {
+      "types": "./dist/react.d.ts",
       "import": "./dist/react.mjs",
-      "require": "./dist/react.js",
-      "types": "./dist/react.d.ts"
+      "require": "./dist/react.js"
     }
   },
-  "files": ["dist", "README.md"],
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsup",
     "prepublishOnly": "npm run build"
   },
-  "keywords": ["world-id", "authentication", "humanauth", "proof-of-humanity", "world-chain"],
+  "keywords": [
+    "world-id",
+    "authentication",
+    "humanauth",
+    "proof-of-humanity",
+    "world-chain"
+  ],
   "author": "BBB&Company",
   "license": "MIT",
   "repository": {
@@ -38,8 +47,8 @@
     }
   },
   "devDependencies": {
-    "tsup": "^8.0.0",
-    "typescript": "^5.0.0",
-    "@types/react": "^19.0.0"
+    "@types/react": "^19.2.14",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
   }
 }

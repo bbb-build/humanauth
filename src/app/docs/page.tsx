@@ -35,14 +35,14 @@ export default function DocsPage() {
             <div>
               <h3 className="mb-3 text-lg font-semibold">2. Install the SDK</h3>
               <pre className="overflow-x-auto rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-4 text-sm">
-                <code>npm install @humanauth/react</code>
+                <code>npm install humanauth-sdk/react</code>
               </pre>
             </div>
 
             <div>
               <h3 className="mb-3 text-lg font-semibold">3. Add the component</h3>
               <pre className="overflow-x-auto rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-4 text-sm leading-relaxed">
-                <code>{`import { HumanAuth } from "@humanauth/react";
+                <code>{`import { HumanAuth } from "humanauth-sdk/react";
 
 function LoginButton() {
   return (

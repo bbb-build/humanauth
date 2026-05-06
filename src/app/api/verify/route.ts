@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiKey } from "@/lib/api-auth";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { rateLimit, getClientIp, VERIFY_MAX } from "@/lib/rate-limit";
 
 interface VerifyRequest {
   proof: string;
@@ -10,14 +11,24 @@ interface VerifyRequest {
   verification_level?: string;
 }
 
+const HEX_RE = /^0x[0-9a-fA-F]+$/;
+
 export async function POST(req: NextRequest) {
+  const ip = getClientIp(req);
+  const limited = rateLimit(`verify:${ip}`, VERIFY_MAX);
+  if (limited) return limited;
+
   const appCtx = await authenticateApiKey(req);
   if (appCtx instanceof NextResponse) return appCtx;
 
   const body = (await req.json()) as VerifyRequest;
 
-  if (!body.proof || !body.nullifier_hash) {
-    return NextResponse.json({ error: "Missing proof or nullifier_hash" }, { status: 400 });
+  if (!body.proof || !body.nullifier_hash || !body.merkle_root) {
+    return NextResponse.json({ error: "Missing proof, merkle_root, or nullifier_hash" }, { status: 400 });
+  }
+
+  if (!HEX_RE.test(body.nullifier_hash) || !HEX_RE.test(body.merkle_root)) {
+    return NextResponse.json({ error: "Invalid hex format" }, { status: 400 });
   }
 
   const supabase = getSupabaseAdmin();

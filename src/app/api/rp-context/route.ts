@@ -2,8 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiKey } from "@/lib/api-auth";
 import { decrypt } from "@/lib/crypto";
 import { signRequest } from "@worldcoin/idkit/signing";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
+  const ip = getClientIp(req);
+  const limited = rateLimit(`rp:${ip}`, 60);
+  if (limited) return limited;
+
   const appCtx = await authenticateApiKey(req);
   if (appCtx instanceof NextResponse) return appCtx;
 
