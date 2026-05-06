@@ -11,6 +11,7 @@ export const metadata: Metadata = {
     url: "https://humanauth.vercel.app",
     siteName: "HumanAuth",
     type: "website",
+    images: [{ url: "/api/og", width: 1200, height: 630, alt: "HumanAuth" }],
   },
   twitter: {
     card: "summary_large_image",
