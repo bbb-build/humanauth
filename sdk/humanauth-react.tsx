@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 interface HumanAuthProps {
   appId: string;
@@ -21,40 +21,54 @@ interface VerifyResult {
   action: string;
 }
 
+interface RpContext {
+  rp_id: string;
+  nonce: string;
+  created_at: number;
+  expires_at: number;
+  signature: string;
+}
+
 const DEFAULT_API_URL = "https://humanauth.vercel.app";
 
 /**
- * HumanAuth React component.
+ * HumanAuth drop-in React component.
  *
- * Two integration modes:
+ * Handles the full World ID verification flow:
+ * 1. Fetch RP context from HumanAuth
+ * 2. Open World ID widget (IDKit or redirect)
+ * 3. Send proof to HumanAuth for verification
+ * 4. Return result to your app
  *
- * 1. **API-only** (recommended for most cases):
- *    Use IDKit or MiniKit to collect the proof client-side,
- *    then call HumanAuth's /api/verify endpoint server-side.
- *
- * 2. **Drop-in button**:
- *    Use this component which handles the full flow:
- *    get RP context → trigger IDKit → verify via HumanAuth.
- *
- * For mode 1, you don't need this component at all — just call
- * the REST API from your backend.
+ * Requires @worldcoin/idkit as a peer dependency.
  */
 export function HumanAuth({
   appId,
   apiKey,
   action = "humanauth-verify",
   apiUrl = DEFAULT_API_URL,
+  verificationLevel = "orb",
   onVerified,
   onError,
   children,
   className,
 }: HumanAuthProps) {
   const [loading, setLoading] = useState(false);
+  const [rpContext, setRpContext] = useState<RpContext | null>(null);
+  const [idkitModule, setIdkitModule] = useState<{
+    IDKitRequestWidget: React.ComponentType<Record<string, unknown>>;
+    useIDKitRequest: (config: Record<string, unknown>) => { open: () => void; isOpen: boolean; reset: () => void };
+    orbLegacy: () => unknown;
+  } | null>(null);
 
-  const handleVerify = useCallback(async () => {
-    setLoading(true);
+  useEffect(() => {
+    fetchRpContext();
+    loadIdkit();
+  }, [apiKey, action, apiUrl]);
+
+  async function fetchRpContext() {
     try {
-      const ctxRes = await fetch(`${apiUrl}/api/rp-context`, {
+      const res = await fetch(`${apiUrl}/api/rp-context`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -62,37 +76,106 @@ export function HumanAuth({
         },
         body: JSON.stringify({ action }),
       });
-
-      if (!ctxRes.ok) throw new Error("Failed to get RP context");
-
-      // At this point, the developer needs IDKit or MiniKit
-      // to complete the verification flow. This component
-      // provides the API orchestration layer.
-      throw new Error(
-        "Client-side proof collection requires @worldcoin/idkit. " +
-          "Install it alongside @humanauth/react and use IDKitWidget " +
-          "to collect the proof, then pass it to HumanAuth's /api/verify. " +
-          `See ${apiUrl}/docs for the full integration guide.`,
-      );
+      if (!res.ok) throw new Error("Failed to get RP context");
+      const data = await res.json();
+      setRpContext(data.rp_context);
     } catch (err) {
       onError?.(err instanceof Error ? err : new Error(String(err)));
-    } finally {
-      setLoading(false);
     }
-  }, [appId, apiKey, action, apiUrl, onVerified, onError]);
+  }
 
-  if (children) {
+  async function loadIdkit() {
+    try {
+      const mod = await import("@worldcoin/idkit");
+      setIdkitModule({
+        IDKitRequestWidget: mod.IDKitRequestWidget as React.ComponentType<Record<string, unknown>>,
+        useIDKitRequest: mod.useIDKitRequest as (config: Record<string, unknown>) => { open: () => void; isOpen: boolean; reset: () => void },
+        orbLegacy: mod.orbLegacy as () => unknown,
+      });
+    } catch {
+      // IDKit not installed — fall back to API-only mode
+    }
+  }
+
+  const handleSuccess = useCallback(
+    async (result: Record<string, unknown>) => {
+      setLoading(true);
+      try {
+        let proof: string;
+        let merkle_root: string;
+        let nullifier_hash: string;
+
+        // Handle both v3 and v4 IDKit result shapes
+        if (result.responses && Array.isArray(result.responses)) {
+          const resp = result.responses[0] as Record<string, unknown>;
+          proof = resp.proof as string;
+          merkle_root = resp.merkle_root as string;
+          nullifier_hash = resp.nullifier as string;
+        } else {
+          proof = result.proof as string;
+          merkle_root = result.merkle_root as string;
+          nullifier_hash = result.nullifier_hash as string;
+        }
+
+        const verifyRes = await fetch(`${apiUrl}/api/verify`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-humanauth-key": apiKey,
+          },
+          body: JSON.stringify({
+            proof,
+            merkle_root,
+            nullifier_hash,
+            action,
+            verification_level: verificationLevel,
+          }),
+        });
+
+        if (!verifyRes.ok) {
+          const err = await verifyRes.json().catch(() => ({ error: "Verification failed" }));
+          throw new Error(err.error || "Verification failed");
+        }
+
+        const data = await verifyRes.json();
+        onVerified(data);
+      } catch (err) {
+        onError?.(err instanceof Error ? err : new Error(String(err)));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [apiKey, apiUrl, action, verificationLevel, onVerified, onError],
+  );
+
+  // If IDKit loaded, render the full widget flow
+  if (idkitModule && rpContext) {
     return (
-      <button onClick={handleVerify} disabled={loading} className={className}>
+      <HumanAuthWithIDKit
+        idkit={idkitModule}
+        rpContext={rpContext}
+        appId={appId}
+        action={action}
+        onSuccess={handleSuccess}
+        loading={loading}
+        className={className}
+      >
         {children}
-      </button>
+      </HumanAuthWithIDKit>
     );
   }
 
+  // Fallback: button that opens World App verification URL
   return (
     <button
-      onClick={handleVerify}
-      disabled={loading}
+      onClick={() => {
+        if (!rpContext) {
+          onError?.(new Error("RP context not loaded. Please install @worldcoin/idkit for the full flow, or wait for initialization."));
+          return;
+        }
+        onError?.(new Error("Please install @worldcoin/idkit: npm install @worldcoin/idkit"));
+      }}
+      disabled={loading || !rpContext}
       className={className || undefined}
       style={
         !className
@@ -108,28 +191,111 @@ export function HumanAuth({
               fontWeight: 600,
               fontSize: "14px",
               cursor: loading ? "wait" : "pointer",
-              opacity: loading ? 0.7 : 1,
+              opacity: loading || !rpContext ? 0.7 : 1,
             }
           : undefined
       }
     >
       {loading ? (
         "Verifying..."
+      ) : !rpContext ? (
+        "Loading..."
       ) : (
         <>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
           </svg>
-          Verify with World ID
+          {children || "Verify with World ID"}
         </>
       )}
     </button>
   );
 }
 
+function HumanAuthWithIDKit({
+  idkit,
+  rpContext,
+  appId,
+  action,
+  onSuccess,
+  loading,
+  className,
+  children,
+}: {
+  idkit: NonNullable<Parameters<typeof HumanAuth>[0] extends never ? never : {
+    IDKitRequestWidget: React.ComponentType<Record<string, unknown>>;
+    useIDKitRequest: (config: Record<string, unknown>) => { open: () => void; isOpen: boolean; reset: () => void };
+    orbLegacy: () => unknown;
+  }>;
+  rpContext: RpContext;
+  appId: string;
+  action: string;
+  onSuccess: (result: Record<string, unknown>) => void;
+  loading: boolean;
+  className?: string;
+  children?: React.ReactNode;
+}) {
+  const idkitState = idkit.useIDKitRequest({
+    app_id: appId as `app_${string}`,
+    action,
+    rp_context: rpContext,
+    allow_legacy_proofs: true,
+    preset: idkit.orbLegacy(),
+  });
+
+  return (
+    <>
+      <button
+        onClick={idkitState.open}
+        disabled={loading}
+        className={className || undefined}
+        style={
+          !className
+            ? {
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "12px 24px",
+                borderRadius: "12px",
+                border: "none",
+                background: "#22d3ee",
+                color: "#000",
+                fontWeight: 600,
+                fontSize: "14px",
+                cursor: loading ? "wait" : "pointer",
+                opacity: loading ? 0.7 : 1,
+              }
+            : undefined
+        }
+      >
+        {loading ? (
+          "Verifying..."
+        ) : (
+          <>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+            {children || "Verify with World ID"}
+          </>
+        )}
+      </button>
+      <idkit.IDKitRequestWidget
+        open={idkitState.isOpen}
+        onOpenChange={(open: boolean) => { if (!open) idkitState.reset(); }}
+        app_id={appId as `app_${string}`}
+        action={action}
+        rp_context={rpContext}
+        allow_legacy_proofs={true}
+        preset={idkit.orbLegacy()}
+        onSuccess={onSuccess}
+      />
+    </>
+  );
+}
+
 /**
- * Helper function for server-side verification.
- * Use this in your API route to verify a World ID proof via HumanAuth.
+ * Server-side verification helper.
+ * Call this from your API route to verify a World ID proof via HumanAuth.
  */
 export async function verifyWithHumanAuth(params: {
   apiKey: string;
@@ -158,4 +324,4 @@ export async function verifyWithHumanAuth(params: {
   return res.json();
 }
 
-export type { HumanAuthProps, VerifyResult };
+export type { HumanAuthProps, VerifyResult, RpContext };

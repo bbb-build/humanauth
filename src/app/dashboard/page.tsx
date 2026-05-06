@@ -295,8 +295,9 @@ export default function DashboardPage() {
 
         <div className="space-y-3">
           {stats?.apps?.map((app) => (
-            <div
+            <Link
               key={app.id}
+              href={`/dashboard/${app.id}`}
               className="flex items-center justify-between rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-6 transition hover:border-[var(--border-hover)]"
             >
               <div>
@@ -306,7 +307,7 @@ export default function DashboardPage() {
                 </p>
               </div>
               <ChevronRight className="h-5 w-5 text-[var(--text-tertiary)]" />
-            </div>
+            </Link>
           ))}
           {stats?.apps?.length === 0 && (
             <div className="py-12 text-center text-[var(--text-tertiary)]">
