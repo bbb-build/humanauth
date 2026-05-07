@@ -1,19 +1,42 @@
 "use client";
 
-import { Suspense, useState, useEffect, useCallback } from "react";
+import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
-import { useIDKitRequest, IDKitRequestWidget, orbLegacy } from "@worldcoin/idkit";
+import { useIDKitRequest, orbLegacy } from "@worldcoin/idkit";
 import type { IDKitResult, RpContext } from "@worldcoin/idkit-core";
 import { Shield, Loader2, CheckCircle, XCircle } from "lucide-react";
+// @ts-expect-error — qrcode/lib/core/qrcode has no type declarations
+import QRCodeUtil from "qrcode/lib/core/qrcode";
 
-// IDKit uses @media (max-width: 1024px) to hide QR and show "Open World App" deep link.
-// Our popup is 460px wide, so IDKit thinks it's mobile. Force desktop (QR) mode.
-const idkitDesktopOverride = `
-  .idkit-desktop-only { display: block !important; position: relative !important; }
-  .idkit-mobile-only { display: none !important; }
-`;
+function QRCode({ data, size = 220 }: { data: string; size?: number }) {
+  const elements = useMemo(() => {
+    const qr = QRCodeUtil.create(data, { errorCorrectionLevel: "M" });
+    const modules: boolean[][] = qr.modules.data;
+    const len = modules.length;
+    const cellSize = size / (len + 2);
+    const rects: { x: number; y: number; w: number }[] = [];
 
-type Stage = "loading" | "ready" | "verifying" | "success" | "error";
+    for (let row = 0; row < len; row++) {
+      for (let col = 0; col < len; col++) {
+        if (modules[row][col]) {
+          rects.push({ x: (col + 1) * cellSize, y: (row + 1) * cellSize, w: cellSize });
+        }
+      }
+    }
+    return rects;
+  }, [data, size]);
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <rect width={size} height={size} fill="white" rx={12} />
+      {elements.map((c, i) => (
+        <rect key={i} x={c.x} y={c.y} width={c.w} height={c.w} fill="#000" />
+      ))}
+    </svg>
+  );
+}
+
+type Stage = "loading" | "connecting" | "scan" | "verifying" | "success" | "error";
 
 export default function VerifyPage() {
   return (
@@ -40,6 +63,7 @@ function VerifyContent() {
   const [worldAppId, setWorldAppId] = useState<string>("");
   const [appName, setAppName] = useState<string>("");
   const [errorMsg, setErrorMsg] = useState<string>("");
+  const autoOpenedRef = useRef(false);
 
   useEffect(() => {
     if (!appId) {
@@ -61,7 +85,7 @@ function VerifyContent() {
         setRpContext(data.rp_context);
         setWorldAppId(data.world_app_id);
         setAppName(data.app_name);
-        setStage("ready");
+        setStage("connecting");
       })
       .catch(() => {
         setStage("error");
@@ -129,6 +153,37 @@ function VerifyContent() {
     preset: orbLegacy(),
   });
 
+  // Auto-open IDKit flow once RP context is loaded
+  useEffect(() => {
+    if (stage === "connecting" && rpContext && worldAppId && !autoOpenedRef.current) {
+      autoOpenedRef.current = true;
+      idkit.open();
+    }
+  }, [stage, rpContext, worldAppId, idkit]);
+
+  // connectorURI ready → show QR
+  useEffect(() => {
+    if (idkit.connectorURI && stage === "connecting") {
+      setStage("scan");
+    }
+  }, [idkit.connectorURI, stage]);
+
+  // Watch for verification success
+  useEffect(() => {
+    if (idkit.isSuccess && idkit.result) {
+      handleSuccess(idkit.result);
+    }
+  }, [idkit.isSuccess, idkit.result, handleSuccess]);
+
+  // Watch for error
+  useEffect(() => {
+    if (idkit.isError && idkit.errorCode) {
+      setStage("error");
+      setErrorMsg(`Verification error: ${idkit.errorCode}`);
+      postToOpener("humanauth:error", { error: idkit.errorCode });
+    }
+  }, [idkit.isError, idkit.errorCode]);
+
   const isDark = theme === "dark";
 
   return (
@@ -139,7 +194,6 @@ function VerifyContent() {
         color: isDark ? "#ffffff" : "#111111",
       }}
     >
-      <style dangerouslySetInnerHTML={{ __html: idkitDesktopOverride }} />
       <div className="w-full max-w-sm text-center">
         <Shield className="mx-auto mb-4 h-10 w-10" style={{ color: "#00d4aa" }} />
 
@@ -151,30 +205,25 @@ function VerifyContent() {
 
         <h1 className="mb-6 text-xl font-bold">Verify you&apos;re human</h1>
 
-        {stage === "loading" && (
-          <div className="flex items-center justify-center gap-2">
-            <Loader2 className="h-5 w-5 animate-spin" style={{ color: "#00d4aa" }} />
-            <span style={{ color: isDark ? "#a8b0bc" : "#666666" }}>Initializing...</span>
+        {(stage === "loading" || stage === "connecting") && (
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="h-6 w-6 animate-spin" style={{ color: "#00d4aa" }} />
+            <span className="text-sm" style={{ color: isDark ? "#a8b0bc" : "#666666" }}>
+              {stage === "loading" ? "Initializing..." : "Connecting to World ID..."}
+            </span>
           </div>
         )}
 
-        {stage === "ready" && (
-          <>
-            <button
-              onClick={idkit.open}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold transition"
-              style={{ background: "#00d4aa", color: "#000000" }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = "#00e5ba")}
-              onMouseLeave={(e) => (e.currentTarget.style.background = "#00d4aa")}
-            >
-              <Shield className="h-5 w-5" />
-              Verify with World ID
-            </button>
-            <p className="mt-4 text-xs" style={{ color: isDark ? "#7a8392" : "#999999" }}>
-              Powered by{" "}
-              <span style={{ color: isDark ? "#a8b0bc" : "#333333" }}>HumanAuth</span>
+        {stage === "scan" && idkit.connectorURI && (
+          <div className="flex flex-col items-center gap-4">
+            <p className="text-sm" style={{ color: isDark ? "#a8b0bc" : "#666666" }}>
+              Scan with your World App
             </p>
-          </>
+            <QRCode data={idkit.connectorURI} size={220} />
+            <p className="text-xs" style={{ color: isDark ? "#7a8392" : "#999999" }}>
+              Open World App → Scan QR code
+            </p>
+          </div>
         )}
 
         {stage === "verifying" && (
@@ -199,28 +248,26 @@ function VerifyContent() {
             <XCircle className="h-12 w-12" style={{ color: "#ef4444" }} />
             <span className="text-sm" style={{ color: "#ef4444" }}>{errorMsg}</span>
             <button
-              onClick={() => window.close()}
+              onClick={() => {
+                setStage("connecting");
+                autoOpenedRef.current = false;
+                idkit.reset();
+              }}
               className="mt-4 rounded-lg px-4 py-2 text-sm transition"
               style={{
                 border: `1px solid ${isDark ? "#2f323e" : "#dddddd"}`,
                 color: isDark ? "#a8b0bc" : "#666666",
               }}
             >
-              Close
+              Try Again
             </button>
           </div>
         )}
 
-        <IDKitRequestWidget
-          open={idkit.isOpen}
-          onOpenChange={(open) => { if (!open) idkit.reset(); }}
-          app_id={(worldAppId || "app_") as `app_${string}`}
-          action={action}
-          rp_context={rpContext || { rp_id: "", nonce: "", created_at: 0, expires_at: 0, signature: "" }}
-          allow_legacy_proofs={true}
-          preset={orbLegacy()}
-          onSuccess={handleSuccess}
-        />
+        <p className="mt-6 text-xs" style={{ color: isDark ? "#7a8392" : "#999999" }}>
+          Powered by{" "}
+          <span style={{ color: isDark ? "#a8b0bc" : "#333333" }}>HumanAuth</span>
+        </p>
       </div>
     </div>
   );
