@@ -38,6 +38,11 @@ function QRCode({ data, size = 220 }: { data: string; size?: number }) {
 
 type Stage = "loading" | "connecting" | "scan" | "verifying" | "success" | "error";
 
+function isMobileDevice(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
 export default function VerifyPage() {
   return (
     <Suspense
@@ -64,6 +69,7 @@ function VerifyContent() {
   const [appName, setAppName] = useState<string>("");
   const [errorMsg, setErrorMsg] = useState<string>("");
   const autoOpenedRef = useRef(false);
+  const isMobile = useMemo(() => isMobileDevice(), []);
 
   useEffect(() => {
     if (!appId) {
@@ -216,13 +222,45 @@ function VerifyContent() {
 
         {stage === "scan" && idkit.connectorURI && (
           <div className="flex flex-col items-center gap-4">
-            <p className="text-sm" style={{ color: isDark ? "#a8b0bc" : "#666666" }}>
-              Scan with your World App
-            </p>
-            <QRCode data={idkit.connectorURI} size={220} />
-            <p className="text-xs" style={{ color: isDark ? "#7a8392" : "#999999" }}>
-              Open World App → Scan QR code
-            </p>
+            {isMobile ? (
+              <>
+                <p className="text-sm" style={{ color: isDark ? "#a8b0bc" : "#666666" }}>
+                  Tap the button to verify in World App
+                </p>
+                <a
+                  href={idkit.connectorURI}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                    padding: "14px 32px",
+                    fontSize: "16px",
+                    fontWeight: "600",
+                    color: "#ffffff",
+                    backgroundColor: "#00d4aa",
+                    borderRadius: "12px",
+                    textDecoration: "none",
+                    transition: "background-color 0.15s ease",
+                  }}
+                >
+                  Open World App
+                </a>
+                <p className="text-xs" style={{ color: isDark ? "#7a8392" : "#999999" }}>
+                  You&apos;ll be redirected back after verification
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm" style={{ color: isDark ? "#a8b0bc" : "#666666" }}>
+                  Scan with your World App
+                </p>
+                <QRCode data={idkit.connectorURI} size={220} />
+                <p className="text-xs" style={{ color: isDark ? "#7a8392" : "#999999" }}>
+                  Open World App → Scan QR code
+                </p>
+              </>
+            )}
           </div>
         )}
 

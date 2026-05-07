@@ -162,7 +162,7 @@
 
     btn.addEventListener("click", function () {
       if (state.verified) return;
-      openPopup(config, state);
+      openVerify(config, state);
     });
 
     return btn;
@@ -187,14 +187,17 @@
     }
   }
 
-  // --- Popup ---
+  // --- Device detection ---
 
-  function openPopup(config, state) {
-    if (state.popup && !state.popup.closed) {
-      state.popup.focus();
-      return;
-    }
+  function isMobile() {
+    return /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent
+    );
+  }
 
+  // --- Popup / Redirect ---
+
+  function openVerify(config, state) {
     var url =
       HUMANAUTH_URL +
       "/verify?app_id=" +
@@ -204,18 +207,29 @@
       "&theme=" +
       encodeURIComponent(config.theme);
 
-    var left = Math.max(0, (screen.width - POPUP_WIDTH) / 2);
-    var top = Math.max(0, (screen.height - POPUP_HEIGHT) / 2);
+    if (isMobile()) {
+      // Mobile: new tab (popups are unreliable on mobile browsers)
+      state.popup = window.open(url, "_blank");
+    } else {
+      // Desktop: centered popup
+      if (state.popup && !state.popup.closed) {
+        state.popup.focus();
+        return;
+      }
 
-    state.popup = window.open(
-      url,
-      "humanauth_verify",
-      "width=" + POPUP_WIDTH +
-        ",height=" + POPUP_HEIGHT +
-        ",left=" + left +
-        ",top=" + top +
-        ",toolbar=no,menubar=no,scrollbars=no,resizable=no"
-    );
+      var left = Math.max(0, (screen.width - POPUP_WIDTH) / 2);
+      var top = Math.max(0, (screen.height - POPUP_HEIGHT) / 2);
+
+      state.popup = window.open(
+        url,
+        "humanauth_verify",
+        "width=" + POPUP_WIDTH +
+          ",height=" + POPUP_HEIGHT +
+          ",left=" + left +
+          ",top=" + top +
+          ",toolbar=no,menubar=no,scrollbars=no,resizable=no"
+      );
+    }
   }
 
   // --- Programmatic API ---
@@ -235,17 +249,21 @@
           "&theme=" +
           encodeURIComponent(options.theme || "dark");
 
-        var left = Math.max(0, (screen.width - POPUP_WIDTH) / 2);
-        var top = Math.max(0, (screen.height - POPUP_HEIGHT) / 2);
-
-        var popup = window.open(
-          url,
-          "humanauth_verify",
-          "width=" + POPUP_WIDTH +
-            ",height=" + POPUP_HEIGHT +
-            ",left=" + left +
-            ",top=" + top
-        );
+        var popup;
+        if (isMobile()) {
+          popup = window.open(url, "_blank");
+        } else {
+          var left = Math.max(0, (screen.width - POPUP_WIDTH) / 2);
+          var top = Math.max(0, (screen.height - POPUP_HEIGHT) / 2);
+          popup = window.open(
+            url,
+            "humanauth_verify",
+            "width=" + POPUP_WIDTH +
+              ",height=" + POPUP_HEIGHT +
+              ",left=" + left +
+              ",top=" + top
+          );
+        }
 
         function handler(e) {
           if (e.origin !== HUMANAUTH_URL) return;
