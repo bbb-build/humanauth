@@ -41,12 +41,12 @@ export default function LandingPage() {
           <h1 className="mb-6 text-5xl font-bold leading-tight tracking-tight">
             Human verification
             <br />
-            <span className="text-[var(--accent)]">in 2 lines of code</span>
+            <span className="text-[var(--accent)]">in 2 lines of HTML</span>
           </h1>
           <p className="mb-10 text-lg text-[var(--text-secondary)]">
-            Managed RP signing, nullifier dedup, and real-time analytics.
+            Embed World ID verification on any website. No coding required.
             <br />
-            Stop building auth infrastructure. Start verifying humans.
+            Works with WordPress, Shopify, Squarespace — anything with HTML.
           </p>
           <div className="flex items-center justify-center gap-4">
             <Link
@@ -65,8 +65,41 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Code Example */}
+      {/* Code Example — Widget Embed */}
       <section className="px-6 pb-24">
+        <div className="mx-auto max-w-2xl overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)]">
+          <div className="flex items-center gap-2 border-b border-[var(--border-color)] px-4 py-3">
+            <div className="h-3 w-3 rounded-full bg-[var(--error)] opacity-60" />
+            <div className="h-3 w-3 rounded-full bg-[var(--warning)] opacity-60" />
+            <div className="h-3 w-3 rounded-full bg-[var(--success)] opacity-60" />
+            <span className="ml-2 text-xs text-[var(--text-tertiary)]">index.html</span>
+          </div>
+          <pre className="overflow-x-auto p-6 text-sm leading-relaxed">
+            <code>{`<!-- Add this to your website — that's it -->
+<script src="https://humanauth.vercel.app/widget/v1.js"></script>
+
+<div data-humanauth
+     data-app-id="your-app-id"
+     data-on-success="onVerified">
+</div>
+
+<script>
+function onVerified(result) {
+  console.log("Human verified!", result.nullifier_hash);
+}
+</script>`}</code>
+          </pre>
+        </div>
+        <p className="mx-auto mt-4 max-w-md text-center text-sm text-[var(--text-tertiary)]">
+          No npm. No React. No backend. Just HTML.
+        </p>
+      </section>
+
+      {/* Alt: React SDK */}
+      <section className="px-6 pb-24">
+        <p className="mb-4 text-center text-sm text-[var(--text-secondary)]">
+          Or use the React SDK for deeper integration:
+        </p>
         <div className="mx-auto max-w-2xl overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)]">
           <div className="flex items-center gap-2 border-b border-[var(--border-color)] px-4 py-3">
             <div className="h-3 w-3 rounded-full bg-[var(--error)] opacity-60" />
@@ -77,17 +110,13 @@ export default function LandingPage() {
           <pre className="overflow-x-auto p-6 text-sm leading-relaxed">
             <code>{`import { HumanAuth } from "humanauth-sdk/react";
 
-function App() {
-  return (
-    <HumanAuth
-      appId="your-app-id"
-      action="login"
-      onVerified={(result) => {
-        console.log("Human verified!", result);
-      }}
-    />
-  );
-}`}</code>
+<HumanAuth
+  appId="your-app-id"
+  action="login"
+  onVerified={(result) => {
+    console.log("Human verified!", result);
+  }}
+/>`}</code>
           </pre>
         </div>
       </section>
@@ -97,13 +126,13 @@ function App() {
         <div className="mx-auto max-w-6xl">
           <h2 className="mb-4 text-center text-3xl font-bold">Everything you need. Nothing you don&apos;t.</h2>
           <p className="mb-16 text-center text-[var(--text-secondary)]">
-            World ID integration takes days. HumanAuth takes minutes.
+            World ID integration takes days. HumanAuth takes 2 minutes.
           </p>
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
             {[
               { icon: Key, title: "Managed RP Signing", desc: "We handle key generation, rotation, and signing. Your keys never touch your servers." },
               { icon: Shield, title: "Nullifier Dedup", desc: "Automatic duplicate detection and replay prevention across all your actions." },
-              { icon: Zap, title: "2-Line Integration", desc: "Drop-in React component. npm install, import, done." },
+              { icon: Zap, title: "No-Code Widget", desc: "Paste 2 lines of HTML. Works on any website — WordPress, Shopify, or plain HTML." },
               { icon: BarChart3, title: "Real-time Analytics", desc: "MAU tracking, verification logs, conversion rates. All in your dashboard." },
               { icon: Globe, title: "Multi-Chain Ready", desc: "Cloud Verification today. On-chain verification when you need it." },
               { icon: Code, title: "API-First", desc: "REST API for any framework. React SDK for the fast path." },
@@ -133,12 +162,12 @@ function App() {
               </thead>
               <tbody>
                 {[
-                  ["Initial setup", "Days", "30 min"],
+                  ["Initial setup", "Days", "2 minutes"],
+                  ["Coding required", "React/Node.js", "None (HTML only)"],
                   ["RP key management", "You build it", "Managed"],
                   ["Nullifier storage", "You build it", "Managed"],
                   ["SDK version upgrades", "Manual migration", "Automatic"],
                   ["Analytics dashboard", "You build it", "Included"],
-                  ["Multi-action support", "You build it", "Config only"],
                 ].map(([feature, sdk, ha]) => (
                   <tr key={feature} className="border-b border-[var(--border-color)] last:border-b-0">
                     <td className="px-6 py-4 font-medium">{feature}</td>

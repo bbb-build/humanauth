@@ -13,6 +13,19 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        source: "/verify",
+        headers: [
+          { key: "X-Frame-Options", value: "ALLOWALL" },
+        ],
+      },
+      {
+        source: "/widget/:path*",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: "Cache-Control", value: "public, max-age=3600, s-maxage=86400" },
+        ],
+      },
+      {
         source: "/api/:path*",
         headers: [
           { key: "Access-Control-Allow-Origin", value: "*" },
