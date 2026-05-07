@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       expires_at: expiresAt,
       signature: sig,
     },
-    world_app_id: appCtx.rpId,
+    world_app_id: process.env.NEXT_PUBLIC_WORLD_APP_ID || appCtx.rpId,
     app_name: appCtx.appName,
   });
 }
