@@ -103,11 +103,7 @@ function VerifyContent() {
     async (result: IDKitResult) => {
       setStage("verifying");
 
-      const response = result.responses?.[0] as unknown as
-        | { proof: string; merkle_root: string; nullifier_hash: string; identifier: string }
-        | undefined;
-
-      if (!response) {
+      if (!result.responses?.length) {
         setStage("error");
         setErrorMsg("Invalid verification response");
         return;
@@ -119,10 +115,7 @@ function VerifyContent() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             app_id: appId,
-            proof: response.proof,
-            merkle_root: response.merkle_root,
-            nullifier_hash: response.nullifier_hash,
-            action,
+            idkit_response: result,
           }),
         });
 
@@ -148,7 +141,7 @@ function VerifyContent() {
         postToOpener("humanauth:error", { error: "Network error" });
       }
     },
-    [appId, action],
+    [appId],
   );
 
   const idkit = useIDKitRequest({
