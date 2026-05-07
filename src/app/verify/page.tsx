@@ -11,14 +11,14 @@ import QRCodeUtil from "qrcode/lib/core/qrcode";
 function QRCode({ data, size = 220 }: { data: string; size?: number }) {
   const elements = useMemo(() => {
     const qr = QRCodeUtil.create(data, { errorCorrectionLevel: "M" });
-    const modules: boolean[][] = qr.modules.data;
-    const len = modules.length;
+    const cells: Uint8Array = qr.modules.data;
+    const len: number = qr.modules.size;
     const cellSize = size / (len + 2);
     const rects: { x: number; y: number; w: number }[] = [];
 
     for (let row = 0; row < len; row++) {
       for (let col = 0; col < len; col++) {
-        if (modules[row][col]) {
+        if (cells[row * len + col]) {
           rects.push({ x: (col + 1) * cellSize, y: (row + 1) * cellSize, w: cellSize });
         }
       }
