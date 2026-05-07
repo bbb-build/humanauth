@@ -19,18 +19,26 @@ function HumanAuth({
   const [rpContext, setRpContext] = useState(null);
   const [idkitModule, setIdkitModule] = useState(null);
   useEffect(() => {
+    if (apiKey) {
+      console.warn(
+        "[HumanAuth] Passing apiKey to a client component exposes it in the browser. Use widget flow (appId only) or call verifyWithHumanAuth() server-side."
+      );
+    }
+  }, [apiKey]);
+  useEffect(() => {
     fetchRpContext();
     loadIdkit();
-  }, [apiKey, action, apiUrl]);
+  }, [appId, apiKey, action, apiUrl]);
   async function fetchRpContext() {
     try {
-      const res = await fetch(`${apiUrl}/api/rp-context`, {
+      const useWidget = !apiKey;
+      const endpoint = useWidget ? `${apiUrl}/api/widget/rp-context` : `${apiUrl}/api/rp-context`;
+      const headers = { "Content-Type": "application/json" };
+      if (!useWidget) headers["x-humanauth-key"] = apiKey;
+      const res = await fetch(endpoint, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-humanauth-key": apiKey
-        },
-        body: JSON.stringify({ action })
+        headers,
+        body: JSON.stringify(useWidget ? { app_id: appId, action } : { action })
       });
       if (!res.ok) throw new Error("Failed to get RP context");
       const data = await res.json();
@@ -54,32 +62,35 @@ function HumanAuth({
     async (result) => {
       setLoading(true);
       try {
-        let proof;
-        let merkle_root;
-        let nullifier_hash;
-        if (result.responses && Array.isArray(result.responses)) {
+        const useWidget = !apiKey;
+        const endpoint = useWidget ? `${apiUrl}/api/widget/verify` : `${apiUrl}/api/verify`;
+        const headers = { "Content-Type": "application/json" };
+        if (!useWidget) headers["x-humanauth-key"] = apiKey;
+        let body;
+        if (useWidget) {
+          body = { app_id: appId, idkit_response: result };
+        } else if (result.responses && Array.isArray(result.responses)) {
           const resp = result.responses[0];
-          proof = resp.proof;
-          merkle_root = resp.merkle_root;
-          nullifier_hash = resp.nullifier;
-        } else {
-          proof = result.proof;
-          merkle_root = result.merkle_root;
-          nullifier_hash = result.nullifier_hash;
-        }
-        const verifyRes = await fetch(`${apiUrl}/api/verify`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-humanauth-key": apiKey
-          },
-          body: JSON.stringify({
-            proof,
-            merkle_root,
-            nullifier_hash,
+          body = {
+            proof: resp.proof,
+            merkle_root: resp.merkle_root,
+            nullifier_hash: resp.nullifier,
             action,
             verification_level: verificationLevel
-          })
+          };
+        } else {
+          body = {
+            proof: result.proof,
+            merkle_root: result.merkle_root,
+            nullifier_hash: result.nullifier_hash,
+            action,
+            verification_level: verificationLevel
+          };
+        }
+        const verifyRes = await fetch(endpoint, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(body)
         });
         if (!verifyRes.ok) {
           const err = await verifyRes.json().catch(() => ({ error: "Verification failed" }));
@@ -93,7 +104,7 @@ function HumanAuth({
         setLoading(false);
       }
     },
-    [apiKey, apiUrl, action, verificationLevel, onVerified, onError]
+    [apiKey, appId, apiUrl, action, verificationLevel, onVerified, onError]
   );
   if (idkitModule && rpContext) {
     return /* @__PURE__ */ jsx(

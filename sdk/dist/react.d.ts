@@ -2,7 +2,8 @@ import * as react_jsx_runtime from 'react/jsx-runtime';
 
 interface HumanAuthProps {
     appId: string;
-    apiKey: string;
+    /** @deprecated Use widget flow (appId only) instead. API keys should only be used server-side. */
+    apiKey?: string;
     action?: string;
     apiUrl?: string;
     verificationLevel?: "orb" | "device" | "phone";
@@ -27,13 +28,8 @@ interface RpContext {
 /**
  * HumanAuth drop-in React component.
  *
- * Handles the full World ID verification flow:
- * 1. Fetch RP context from HumanAuth
- * 2. Open World ID widget (IDKit or redirect)
- * 3. Send proof to HumanAuth for verification
- * 4. Return result to your app
- *
- * Requires @worldcoin/idkit as a peer dependency.
+ * Preferred: pass only `appId` (widget flow with Origin-based auth).
+ * Server-side: use `verifyWithHumanAuth()` with apiKey instead.
  */
 declare function HumanAuth({ appId, apiKey, action, apiUrl, verificationLevel, onVerified, onError, children, className, }: HumanAuthProps): react_jsx_runtime.JSX.Element;
 /**

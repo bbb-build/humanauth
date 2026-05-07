@@ -6,7 +6,7 @@ import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req);
-  const limited = rateLimit(`widget-rp:${ip}`, 30);
+  const limited = await rateLimit(`widget-rp:${ip}`, 30);
   if (limited) return limited;
 
   const body = await req.json().catch(() => ({}));
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       expires_at: expiresAt,
       signature: sig,
     },
-    world_app_id: process.env.NEXT_PUBLIC_WORLD_APP_ID || appCtx.rpId,
+    world_app_id: appCtx.rpId,
     app_name: appCtx.appName,
   });
 }

@@ -2,7 +2,8 @@ import * as react_jsx_runtime from 'react/jsx-runtime';
 
 interface HumanAuthProps {
     appId: string;
-    apiKey: string;
+    /** @deprecated Use widget flow (appId only) instead. API keys should only be used server-side. */
+    apiKey?: string;
     action?: string;
     apiUrl?: string;
     verificationLevel?: "orb" | "device" | "phone";

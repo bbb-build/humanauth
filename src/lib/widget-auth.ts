@@ -7,6 +7,8 @@ export interface WidgetAppContext {
   signingKeyEncrypted: string;
   rpId: string;
   ownerId: string;
+  plan: string;
+  mauCurrentMonth: number;
 }
 
 export async function authenticateWidget(
@@ -20,7 +22,7 @@ export async function authenticateWidget(
   const supabase = getSupabaseAdmin();
   const { data: app } = await supabase
     .from("ha_apps")
-    .select("id, name, signing_key_encrypted, rp_id, owner_id, widget_enabled, allowed_domains")
+    .select("id, name, signing_key_encrypted, rp_id, owner_id, widget_enabled, allowed_domains, plan, mau_current_month")
     .eq("id", appId)
     .single();
 
@@ -35,7 +37,10 @@ export async function authenticateWidget(
   const origin = req.headers.get("origin") || req.headers.get("referer");
   const domains: string[] = app.allowed_domains || [];
 
-  if (domains.length > 0 && origin) {
+  if (domains.length > 0) {
+    if (!origin) {
+      return NextResponse.json({ error: "Origin header required for domain-restricted apps" }, { status: 403 });
+    }
     const originHost = extractHost(origin);
     const allowed = domains.some((d: string) => originHost === d || originHost.endsWith(`.${d}`));
     if (!allowed) {
@@ -49,6 +54,8 @@ export async function authenticateWidget(
     signingKeyEncrypted: app.signing_key_encrypted,
     rpId: app.rp_id,
     ownerId: app.owner_id,
+    plan: app.plan || "free",
+    mauCurrentMonth: app.mau_current_month || 0,
   };
 }
 

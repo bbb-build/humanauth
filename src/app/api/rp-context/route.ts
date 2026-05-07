@@ -6,7 +6,7 @@ import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req);
-  const limited = rateLimit(`rp:${ip}`, 60);
+  const limited = await rateLimit(`rp:${ip}`, 60);
   if (limited) return limited;
 
   const appCtx = await authenticateApiKey(req);
@@ -31,4 +31,8 @@ export async function POST(req: NextRequest) {
       signature: sig,
     },
   });
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204 });
 }

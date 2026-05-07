@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyJwt } from "@/lib/jwt";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { getOwnerId } from "@/lib/auth-helpers";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ appId: string }> }) {
   const { appId } = await params;
@@ -55,13 +55,3 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ appI
   return NextResponse.json(data);
 }
 
-async function getOwnerId(req: NextRequest): Promise<string | null> {
-  const token = req.headers.get("authorization")?.replace("Bearer ", "");
-  if (!token) return null;
-  try {
-    const payload = await verifyJwt(token);
-    return (payload.sub as string) || null;
-  } catch {
-    return null;
-  }
-}

@@ -1,3 +1,4 @@
+// WARNING: API key must only be used server-side. Never expose it in client/browser code.
 const DEFAULT_API_URL = "https://humanauth.vercel.app";
 
 export interface VerifyParams {

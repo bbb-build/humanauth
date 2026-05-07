@@ -1,24 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyJwt } from "@/lib/jwt";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { getOwnerId } from "@/lib/auth-helpers";
 
 export async function GET(req: NextRequest) {
-  const token = req.headers.get("authorization")?.replace("Bearer ", "");
-  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  let ownerId: string;
-  try {
-    const payload = await verifyJwt(token);
-    ownerId = payload.sub as string;
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const ownerId = await getOwnerId(req);
+  if (!ownerId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const supabase = getSupabaseAdmin();
 
   const { data: apps } = await supabase
     .from("ha_apps")
-    .select("id, name, plan, mau_current_month, created_at")
+    .select("id, name, rp_id, plan, mau_current_month, created_at")
     .eq("owner_id", ownerId);
 
   if (!apps?.length) {
@@ -27,7 +19,6 @@ export async function GET(req: NextRequest) {
 
   const appIds = apps.map((a) => a.id);
 
-  // 今月の合計認証数
   const startOfMonth = new Date();
   startOfMonth.setDate(1);
   startOfMonth.setHours(0, 0, 0, 0);

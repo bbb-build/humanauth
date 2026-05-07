@@ -19,10 +19,6 @@ var __copyProps = (to, from, except, desc) => {
   return to;
 };
 var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
@@ -53,18 +49,26 @@ function HumanAuth({
   const [rpContext, setRpContext] = (0, import_react.useState)(null);
   const [idkitModule, setIdkitModule] = (0, import_react.useState)(null);
   (0, import_react.useEffect)(() => {
+    if (apiKey) {
+      console.warn(
+        "[HumanAuth] Passing apiKey to a client component exposes it in the browser. Use widget flow (appId only) or call verifyWithHumanAuth() server-side."
+      );
+    }
+  }, [apiKey]);
+  (0, import_react.useEffect)(() => {
     fetchRpContext();
     loadIdkit();
-  }, [apiKey, action, apiUrl]);
+  }, [appId, apiKey, action, apiUrl]);
   async function fetchRpContext() {
     try {
-      const res = await fetch(`${apiUrl}/api/rp-context`, {
+      const useWidget = !apiKey;
+      const endpoint = useWidget ? `${apiUrl}/api/widget/rp-context` : `${apiUrl}/api/rp-context`;
+      const headers = { "Content-Type": "application/json" };
+      if (!useWidget) headers["x-humanauth-key"] = apiKey;
+      const res = await fetch(endpoint, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-humanauth-key": apiKey
-        },
-        body: JSON.stringify({ action })
+        headers,
+        body: JSON.stringify(useWidget ? { app_id: appId, action } : { action })
       });
       if (!res.ok) throw new Error("Failed to get RP context");
       const data = await res.json();
@@ -88,32 +92,35 @@ function HumanAuth({
     async (result) => {
       setLoading(true);
       try {
-        let proof;
-        let merkle_root;
-        let nullifier_hash;
-        if (result.responses && Array.isArray(result.responses)) {
+        const useWidget = !apiKey;
+        const endpoint = useWidget ? `${apiUrl}/api/widget/verify` : `${apiUrl}/api/verify`;
+        const headers = { "Content-Type": "application/json" };
+        if (!useWidget) headers["x-humanauth-key"] = apiKey;
+        let body;
+        if (useWidget) {
+          body = { app_id: appId, idkit_response: result };
+        } else if (result.responses && Array.isArray(result.responses)) {
           const resp = result.responses[0];
-          proof = resp.proof;
-          merkle_root = resp.merkle_root;
-          nullifier_hash = resp.nullifier;
-        } else {
-          proof = result.proof;
-          merkle_root = result.merkle_root;
-          nullifier_hash = result.nullifier_hash;
-        }
-        const verifyRes = await fetch(`${apiUrl}/api/verify`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-humanauth-key": apiKey
-          },
-          body: JSON.stringify({
-            proof,
-            merkle_root,
-            nullifier_hash,
+          body = {
+            proof: resp.proof,
+            merkle_root: resp.merkle_root,
+            nullifier_hash: resp.nullifier,
             action,
             verification_level: verificationLevel
-          })
+          };
+        } else {
+          body = {
+            proof: result.proof,
+            merkle_root: result.merkle_root,
+            nullifier_hash: result.nullifier_hash,
+            action,
+            verification_level: verificationLevel
+          };
+        }
+        const verifyRes = await fetch(endpoint, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(body)
         });
         if (!verifyRes.ok) {
           const err = await verifyRes.json().catch(() => ({ error: "Verification failed" }));
@@ -127,7 +134,7 @@ function HumanAuth({
         setLoading(false);
       }
     },
-    [apiKey, apiUrl, action, verificationLevel, onVerified, onError]
+    [apiKey, appId, apiUrl, action, verificationLevel, onVerified, onError]
   );
   if (idkitModule && rpContext) {
     return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
@@ -216,7 +223,7 @@ function HumanAuthWithIDKit({
           opacity: loading ? 0.7 : 1
         } : void 0,
         children: loading ? "Verifying..." : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("svg", { width: "20", height: "20", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" }) }),
+          /* @__PURE__  */ (0, import_jsx_runtime.jsx)("svg", { width: "20", height: "20", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" }) }),
           children || "Verify with World ID"
         ] })
       }

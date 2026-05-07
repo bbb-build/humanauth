@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyJwt } from "@/lib/jwt";
 import { encrypt } from "@/lib/crypto";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { generateApiKey, hashApiKey } from "@/lib/api-auth";
+import { getOwnerId, unauthorized } from "@/lib/auth-helpers";
 
 // アプリ一覧取得
 export async function GET(req: NextRequest) {
@@ -34,9 +34,22 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (typeof name !== "string" || name.length > 100) {
+    return NextResponse.json({ error: "Invalid name (max 100 chars)" }, { status: 400 });
+  }
+
+  if (!/^app_[a-f0-9]{32}$/.test(rp_id)) {
+    return NextResponse.json({ error: "Invalid rp_id format (expected app_<32 hex chars>)" }, { status: 400 });
+  }
+
+  const signingKeyClean = signing_key.startsWith("0x") ? signing_key.slice(2) : signing_key;
+  if (!/^[a-f0-9]{64}$/i.test(signingKeyClean)) {
+    return NextResponse.json({ error: "Invalid signing_key format (expected 64 hex chars, optional 0x prefix)" }, { status: 400 });
+  }
+
   const supabase = getSupabaseAdmin();
 
-  const signingKeyEncrypted = await encrypt(signing_key);
+  const signingKeyEncrypted = await encrypt(signingKeyClean);
 
   const { data: app, error } = await supabase
     .from("ha_apps")
@@ -69,17 +82,3 @@ export async function POST(req: NextRequest) {
   });
 }
 
-async function getOwnerId(req: NextRequest): Promise<string | null> {
-  const token = req.headers.get("authorization")?.replace("Bearer ", "");
-  if (!token) return null;
-  try {
-    const payload = await verifyJwt(token);
-    return (payload.sub as string) || null;
-  } catch {
-    return null;
-  }
-}
-
-function unauthorized() {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-}

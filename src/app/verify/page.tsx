@@ -62,6 +62,7 @@ function VerifyContent() {
   const appId = params.get("app_id") || "";
   const action = params.get("action") || "humanauth-verify";
   const theme = params.get("theme") || "dark";
+  const callerOrigin = params.get("origin") || "";
 
   const [stage, setStage] = useState<Stage>("loading");
   const [rpContext, setRpContext] = useState<RpContext | null>(null);
@@ -128,20 +129,20 @@ function VerifyContent() {
             is_new_user: data.is_new_user,
             action: data.action,
             verified: true,
-          });
+          }, callerOrigin);
           setTimeout(() => window.close(), 1500);
         } else {
           setStage("error");
           setErrorMsg(data.error || "Verification failed");
-          postToOpener("humanauth:error", { error: data.error || "Verification failed" });
+          postToOpener("humanauth:error", { error: data.error || "Verification failed" }, callerOrigin);
         }
       } catch {
         setStage("error");
         setErrorMsg("Network error during verification");
-        postToOpener("humanauth:error", { error: "Network error" });
+        postToOpener("humanauth:error", { error: "Network error" }, callerOrigin);
       }
     },
-    [appId],
+    [appId, callerOrigin],
   );
 
   const idkit = useIDKitRequest({
@@ -179,9 +180,9 @@ function VerifyContent() {
     if (idkit.isError && idkit.errorCode) {
       setStage("error");
       setErrorMsg(`Verification error: ${idkit.errorCode}`);
-      postToOpener("humanauth:error", { error: idkit.errorCode });
+      postToOpener("humanauth:error", { error: idkit.errorCode }, callerOrigin);
     }
-  }, [idkit.isError, idkit.errorCode]);
+  }, [idkit.isError, idkit.errorCode, callerOrigin]);
 
   const isDark = theme === "dark";
 
@@ -304,8 +305,8 @@ function VerifyContent() {
   );
 }
 
-function postToOpener(type: string, data: Record<string, unknown>) {
-  if (window.opener) {
-    window.opener.postMessage({ type, ...data }, "*");
+function postToOpener(type: string, data: Record<string, unknown>, targetOrigin: string) {
+  if (window.opener && targetOrigin) {
+    window.opener.postMessage({ type, ...data }, targetOrigin);
   }
 }

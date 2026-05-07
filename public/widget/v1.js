@@ -73,13 +73,14 @@
     var button = createButton(config, state);
     el.appendChild(button);
 
-    window.addEventListener("message", function (e) {
+    function messageHandler(e) {
       if (e.origin !== HUMANAUTH_URL) return;
       if (!e.data || !e.data.type) return;
 
       if (e.data.type === "humanauth:verified") {
         state.verified = true;
         updateButtonVerified(button, config);
+        window.removeEventListener("message", messageHandler);
 
         var result = {
           nullifier_hash: e.data.nullifier_hash,
@@ -108,7 +109,12 @@
           new CustomEvent("humanauth:error", { detail: error, bubbles: true })
         );
       }
-    });
+    }
+
+    window.addEventListener("message", messageHandler);
+    el._humanauth_cleanup = function () {
+      window.removeEventListener("message", messageHandler);
+    };
   }
 
   // --- Button ---
@@ -205,7 +211,9 @@
       "&action=" +
       encodeURIComponent(config.action) +
       "&theme=" +
-      encodeURIComponent(config.theme);
+      encodeURIComponent(config.theme) +
+      "&origin=" +
+      encodeURIComponent(window.location.origin);
 
     if (isMobile()) {
       // Mobile: new tab (popups are unreliable on mobile browsers)
@@ -247,7 +255,9 @@
           "&action=" +
           encodeURIComponent(options.action || "humanauth-verify") +
           "&theme=" +
-          encodeURIComponent(options.theme || "dark");
+          encodeURIComponent(options.theme || "dark") +
+          "&origin=" +
+          encodeURIComponent(window.location.origin);
 
         var popup;
         if (isMobile()) {
@@ -270,6 +280,7 @@
           if (!e.data || !e.data.type) return;
 
           if (e.data.type === "humanauth:verified") {
+            clearInterval(pollClosed);
             window.removeEventListener("message", handler);
             resolve({
               nullifier_hash: e.data.nullifier_hash,
@@ -280,6 +291,7 @@
           }
 
           if (e.data.type === "humanauth:error") {
+            clearInterval(pollClosed);
             window.removeEventListener("message", handler);
             reject(new Error(e.data.error || "Verification failed"));
           }

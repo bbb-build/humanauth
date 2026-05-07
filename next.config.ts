@@ -15,7 +15,9 @@ const nextConfig: NextConfig = {
       {
         source: "/verify",
         headers: [
-          { key: "X-Frame-Options", value: "ALLOWALL" },
+          // ポップアップ経由のため X-Frame-Options をオーバーライドしない
+          // iframe埋め込みが必要な場合は CSP frame-ancestors で制御する
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
         ],
       },
       {
@@ -26,11 +28,27 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        source: "/api/:path*",
+        source: "/api/verify",
         headers: [
           { key: "Access-Control-Allow-Origin", value: "*" },
-          { key: "Access-Control-Allow-Methods", value: "GET, POST, OPTIONS" },
-          { key: "Access-Control-Allow-Headers", value: "Content-Type, Authorization, x-humanauth-key" },
+          { key: "Access-Control-Allow-Methods", value: "POST, OPTIONS" },
+          { key: "Access-Control-Allow-Headers", value: "Content-Type, x-humanauth-key" },
+        ],
+      },
+      {
+        source: "/api/rp-context",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: "Access-Control-Allow-Methods", value: "POST, OPTIONS" },
+          { key: "Access-Control-Allow-Headers", value: "Content-Type, x-humanauth-key" },
+        ],
+      },
+      {
+        source: "/api/widget/:path*",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: "Access-Control-Allow-Methods", value: "POST, OPTIONS" },
+          { key: "Access-Control-Allow-Headers", value: "Content-Type" },
         ],
       },
     ];

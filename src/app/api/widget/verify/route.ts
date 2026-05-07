@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticateWidget } from "@/lib/widget-auth";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { rateLimit, getClientIp, VERIFY_MAX } from "@/lib/rate-limit";
+import { PLANS, type PlanId } from "@/lib/constants";
 
 const WORLD_ID_V4_URL = "https://developer.world.org/api/v4/verify";
 
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req);
-  const limited = rateLimit(`widget-verify:${ip}`, VERIFY_MAX);
+  const limited = await rateLimit(`widget-verify:${ip}`, VERIFY_MAX);
   if (limited) return limited;
 
   const body = await req.json();
@@ -15,6 +16,11 @@ export async function POST(req: NextRequest) {
 
   const appCtx = await authenticateWidget(req, appId);
   if (appCtx instanceof NextResponse) return appCtx;
+
+  const planLimits = PLANS[(appCtx.plan || "free") as PlanId];
+  if (planLimits && appCtx.mauCurrentMonth >= planLimits.mauLimit) {
+    return NextResponse.json({ error: "MAU limit exceeded. Upgrade your plan." }, { status: 429 });
+  }
 
   const supabase = getSupabaseAdmin();
 
@@ -34,11 +40,8 @@ export async function POST(req: NextRequest) {
 
     if (!verifyRes.ok) {
       const errText = await verifyRes.text();
-      const isReplay = errText.includes("already");
-      if (!isReplay) {
-        await logVerification(supabase, appCtx.appId, "", action, false);
-        return NextResponse.json({ error: "Verification failed", detail: errText }, { status: 400 });
-      }
+      await logVerification(supabase, appCtx.appId, "", action, false);
+      return NextResponse.json({ error: "Verification failed", detail: errText }, { status: 400 });
     }
 
     const resp = idkitResponse.responses?.[0];
@@ -82,11 +85,8 @@ export async function POST(req: NextRequest) {
 
     if (!verifyRes.ok) {
       const errText = await verifyRes.text();
-      const isReplay = errText.includes("already");
-      if (!isReplay) {
-        await logVerification(supabase, appCtx.appId, nullifierHash, action, false);
-        return NextResponse.json({ error: "Verification failed" }, { status: 400 });
-      }
+      await logVerification(supabase, appCtx.appId, nullifierHash, action, false);
+      return NextResponse.json({ error: "Verification failed", detail: errText }, { status: 400 });
     }
   }
 
@@ -94,21 +94,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No nullifier in response" }, { status: 400 });
   }
 
-  const { data: existing } = await supabase
+  const { data: inserted } = await supabase
     .from("ha_nullifiers")
-    .select("id")
-    .eq("app_id", appCtx.appId)
-    .eq("nullifier_hash", nullifierHash)
-    .single();
+    .upsert(
+      {
+        app_id: appCtx.appId,
+        nullifier_hash: nullifierHash,
+        action,
+        verification_level: body.verification_level || "orb",
+      },
+      { onConflict: "app_id,nullifier_hash", ignoreDuplicates: true },
+    )
+    .select("id");
 
-  if (!existing) {
-    await supabase.from("ha_nullifiers").insert({
-      app_id: appCtx.appId,
-      nullifier_hash: nullifierHash,
-      action,
-      verification_level: body.verification_level || "orb",
-    });
-  }
+  const isNew = (inserted?.length ?? 0) > 0;
 
   await logVerification(supabase, appCtx.appId, nullifierHash, action, true);
 
@@ -120,7 +119,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     success: true,
     nullifier_hash: nullifierHash,
-    is_new_user: !existing,
+    is_new_user: isNew,
     action,
   });
 }

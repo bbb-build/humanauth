@@ -4,7 +4,8 @@ import { useState, useCallback, useEffect } from "react";
 
 interface HumanAuthProps {
   appId: string;
-  apiKey: string;
+  /** @deprecated Use widget flow (appId only) instead. API keys should only be used server-side. */
+  apiKey?: string;
   action?: string;
   apiUrl?: string;
   verificationLevel?: "orb" | "device" | "phone";
@@ -34,13 +35,8 @@ const DEFAULT_API_URL = "https://humanauth.vercel.app";
 /**
  * HumanAuth drop-in React component.
  *
- * Handles the full World ID verification flow:
- * 1. Fetch RP context from HumanAuth
- * 2. Open World ID widget (IDKit or redirect)
- * 3. Send proof to HumanAuth for verification
- * 4. Return result to your app
- *
- * Requires @worldcoin/idkit as a peer dependency.
+ * Preferred: pass only `appId` (widget flow with Origin-based auth).
+ * Server-side: use `verifyWithHumanAuth()` with apiKey instead.
  */
 export function HumanAuth({
   appId,
@@ -62,19 +58,30 @@ export function HumanAuth({
   } | null>(null);
 
   useEffect(() => {
+    if (apiKey) {
+      console.warn(
+        "[HumanAuth] Passing apiKey to a client component exposes it in the browser. " +
+        "Use widget flow (appId only) or call verifyWithHumanAuth() server-side."
+      );
+    }
+  }, [apiKey]);
+
+  useEffect(() => {
     fetchRpContext();
     loadIdkit();
-  }, [apiKey, action, apiUrl]);
+  }, [appId, apiKey, action, apiUrl]);
 
   async function fetchRpContext() {
     try {
-      const res = await fetch(`${apiUrl}/api/rp-context`, {
+      const useWidget = !apiKey;
+      const endpoint = useWidget ? `${apiUrl}/api/widget/rp-context` : `${apiUrl}/api/rp-context`;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (!useWidget) headers["x-humanauth-key"] = apiKey!;
+
+      const res = await fetch(endpoint, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-humanauth-key": apiKey,
-        },
-        body: JSON.stringify({ action }),
+        headers,
+        body: JSON.stringify(useWidget ? { app_id: appId, action } : { action }),
       });
       if (!res.ok) throw new Error("Failed to get RP context");
       const data = await res.json();
@@ -101,35 +108,38 @@ export function HumanAuth({
     async (result: Record<string, unknown>) => {
       setLoading(true);
       try {
-        let proof: string;
-        let merkle_root: string;
-        let nullifier_hash: string;
+        const useWidget = !apiKey;
+        const endpoint = useWidget ? `${apiUrl}/api/widget/verify` : `${apiUrl}/api/verify`;
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (!useWidget) headers["x-humanauth-key"] = apiKey!;
 
-        // Handle both v3 and v4 IDKit result shapes
-        if (result.responses && Array.isArray(result.responses)) {
+        let body: Record<string, unknown>;
+
+        if (useWidget) {
+          body = { app_id: appId, idkit_response: result };
+        } else if (result.responses && Array.isArray(result.responses)) {
           const resp = result.responses[0] as Record<string, unknown>;
-          proof = resp.proof as string;
-          merkle_root = resp.merkle_root as string;
-          nullifier_hash = resp.nullifier as string;
-        } else {
-          proof = result.proof as string;
-          merkle_root = result.merkle_root as string;
-          nullifier_hash = result.nullifier_hash as string;
-        }
-
-        const verifyRes = await fetch(`${apiUrl}/api/verify`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-humanauth-key": apiKey,
-          },
-          body: JSON.stringify({
-            proof,
-            merkle_root,
-            nullifier_hash,
+          body = {
+            proof: resp.proof,
+            merkle_root: resp.merkle_root,
+            nullifier_hash: resp.nullifier,
             action,
             verification_level: verificationLevel,
-          }),
+          };
+        } else {
+          body = {
+            proof: result.proof,
+            merkle_root: result.merkle_root,
+            nullifier_hash: result.nullifier_hash,
+            action,
+            verification_level: verificationLevel,
+          };
+        }
+
+        const verifyRes = await fetch(endpoint, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(body),
         });
 
         if (!verifyRes.ok) {
@@ -145,10 +155,9 @@ export function HumanAuth({
         setLoading(false);
       }
     },
-    [apiKey, apiUrl, action, verificationLevel, onVerified, onError],
+    [apiKey, appId, apiUrl, action, verificationLevel, onVerified, onError],
   );
 
-  // If IDKit loaded, render the full widget flow
   if (idkitModule && rpContext) {
     return (
       <HumanAuthWithIDKit
@@ -165,7 +174,6 @@ export function HumanAuth({
     );
   }
 
-  // Fallback: button that opens World App verification URL
   return (
     <button
       onClick={() => {

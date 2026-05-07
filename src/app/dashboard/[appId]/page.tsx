@@ -72,7 +72,10 @@ export default function AppDetailPage() {
     const res = await fetch(`/api/apps/${appId}/keys`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (res.ok) setKeys(await res.json());
+    if (res.ok) {
+      const data = await res.json();
+      setKeys(data.keys || []);
+    }
   }, [appId, token]);
 
   const fetchWidget = useCallback(async () => {
@@ -127,6 +130,16 @@ export default function AppDetailPage() {
         setNewKeyValue(null);
       }, 2000);
     }
+  };
+
+  const handleRevokeKey = async (keyId: string) => {
+    if (!token) return;
+    const res = await fetch(`/api/apps/${appId}/keys`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ key_id: keyId }),
+    });
+    if (res.ok) fetchKeys();
   };
 
   if (loading) {
@@ -220,21 +233,19 @@ export default function AppDetailPage() {
             <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-6">
               <h3 className="mb-4 font-semibold">Quick Start</h3>
               <pre className="overflow-x-auto rounded-lg bg-[var(--bg-primary)] p-4 text-sm leading-relaxed">
-                <code>{`// 1. Install
-npm install humanauth-sdk/react @worldcoin/idkit
+                <code>{`<!-- Widget (recommended for frontend) -->
+<script src="https://humanauth.vercel.app/widget/v1.js"></script>
+<div data-humanauth
+     data-app-id="${app.id}"
+     data-on-success="onVerified">
+</div>
 
-// 2. Use
-import { HumanAuth } from "humanauth-sdk/react";
-
-<HumanAuth
-  appId="${app.rp_id}"
-  apiKey="ha_YOUR_API_KEY"
-  action="login"
-  onVerified={(result) => {
-    console.log(result.nullifier_hash);
-    console.log(result.is_new_user);
-  }}
-/>`}</code>
+// Server-side SDK (API key must never be exposed in browser)
+import { HumanAuthClient } from "humanauth-sdk";
+const client = new HumanAuthClient({
+  apiKey: process.env.HUMANAUTH_API_KEY,
+});
+const result = await client.verify({ proof, merkle_root, nullifier_hash });`}</code>
               </pre>
             </div>
 
@@ -496,6 +507,14 @@ function onHumanVerified(result) {
                         )}
                       </div>
                     </div>
+                    {k.is_active && (
+                      <button
+                        onClick={() => handleRevokeKey(k.id)}
+                        className="flex items-center gap-1 rounded-lg border border-[var(--border-color)] px-3 py-1.5 text-xs text-[var(--text-tertiary)] hover:border-[var(--error)] hover:text-[var(--error)]"
+                      >
+                        <Trash2 className="h-3 w-3" /> Revoke
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

@@ -33,14 +33,22 @@ export default function DocsPage() {
             </div>
 
             <div>
-              <h3 className="mb-3 text-lg font-semibold">2. Install the SDK</h3>
-              <pre className="overflow-x-auto rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-4 text-sm">
-                <code>npm install humanauth-sdk/react</code>
+              <h3 className="mb-3 text-lg font-semibold">2a. No-Code Widget (easiest)</h3>
+              <pre className="overflow-x-auto rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-4 text-sm leading-relaxed">
+                <code>{`<!-- Enable Widget in your dashboard, then paste this -->
+<script src="https://humanauth.vercel.app/widget/v1.js"></script>
+<div data-humanauth
+     data-app-id="your-app-id"
+     data-on-success="onVerified">
+</div>`}</code>
               </pre>
             </div>
 
             <div>
-              <h3 className="mb-3 text-lg font-semibold">3. Add the component</h3>
+              <h3 className="mb-3 text-lg font-semibold">2b. React SDK</h3>
+              <pre className="mb-2 overflow-x-auto rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-4 text-sm">
+                <code>npm install humanauth-sdk @worldcoin/idkit</code>
+              </pre>
               <pre className="overflow-x-auto rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-4 text-sm leading-relaxed">
                 <code>{`import { HumanAuth } from "humanauth-sdk/react";
 
@@ -48,7 +56,6 @@ function LoginButton() {
   return (
     <HumanAuth
       appId="your-app-id"
-      apiKey="ha_xxxxx"
       action="login"
       onVerified={(result) => {
         // result.nullifier_hash — unique user ID
@@ -59,6 +66,10 @@ function LoginButton() {
   );
 }`}</code>
               </pre>
+              <p className="mt-2 text-xs text-[var(--text-tertiary)]">
+                The React component uses widget flow (Origin-based auth). No API key needed on the client.
+                For server-side verification, use <code className="text-[var(--accent)]">verifyWithHumanAuth()</code> with your API key.
+              </p>
             </div>
           </div>
         </section>
@@ -142,8 +153,10 @@ function LoginButton() {
                 <li><code>GET /api/apps</code> — List your apps</li>
                 <li><code>POST /api/apps</code> — Register a new app</li>
                 <li><code>GET /api/apps/:id</code> — App details + recent logs</li>
+                <li><code>DELETE /api/apps/:id</code> — Delete app (cascades keys, logs, nullifiers)</li>
                 <li><code>GET /api/apps/:id/keys</code> — List API keys</li>
                 <li><code>POST /api/apps/:id/keys</code> — Create new API key</li>
+                <li><code>DELETE /api/apps/:id/keys</code> — Revoke a key (body: {`{"key_id": "..."}`})</li>
               </ul>
             </div>
           </div>

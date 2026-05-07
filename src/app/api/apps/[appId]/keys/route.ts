@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyJwt } from "@/lib/jwt";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { generateApiKey, hashApiKey } from "@/lib/api-auth";
+import { getOwnerId } from "@/lib/auth-helpers";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ appId: string }> }) {
   const { appId } = await params;
@@ -58,13 +58,32 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ app
   return NextResponse.json({ key, api_key: rawKey });
 }
 
-async function getOwnerId(req: NextRequest): Promise<string | null> {
-  const token = req.headers.get("authorization")?.replace("Bearer ", "");
-  if (!token) return null;
-  try {
-    const payload = await verifyJwt(token);
-    return (payload.sub as string) || null;
-  } catch {
-    return null;
-  }
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ appId: string }> }) {
+  const { appId } = await params;
+  const ownerId = await getOwnerId(req);
+  if (!ownerId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const body = await req.json();
+  const keyId = body.key_id;
+  if (!keyId) return NextResponse.json({ error: "key_id is required" }, { status: 400 });
+
+  const supabase = getSupabaseAdmin();
+
+  const { data: app } = await supabase
+    .from("ha_apps")
+    .select("id")
+    .eq("id", appId)
+    .eq("owner_id", ownerId)
+    .single();
+  if (!app) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const { error } = await supabase
+    .from("ha_api_keys")
+    .update({ is_active: false })
+    .eq("id", keyId)
+    .eq("app_id", appId);
+
+  if (error) return NextResponse.json({ error: "Failed to revoke key" }, { status: 500 });
+
+  return NextResponse.json({ revoked: true });
 }
