@@ -9,8 +9,8 @@
   "use strict";
 
   var HUMANAUTH_URL = "https://humanauth.vercel.app";
-  var POPUP_WIDTH = 460;
-  var POPUP_HEIGHT = 620;
+  var POPUP_WIDTH = 520;
+  var POPUP_HEIGHT = 680;
 
   // --- Styles ---
 

@@ -6,6 +6,13 @@ import { useIDKitRequest, IDKitRequestWidget, orbLegacy } from "@worldcoin/idkit
 import type { IDKitResult, RpContext } from "@worldcoin/idkit-core";
 import { Shield, Loader2, CheckCircle, XCircle } from "lucide-react";
 
+// IDKit uses @media (max-width: 1024px) to hide QR and show "Open World App" deep link.
+// Our popup is 460px wide, so IDKit thinks it's mobile. Force desktop (QR) mode.
+const idkitDesktopOverride = `
+  .idkit-desktop-only { display: block !important; position: relative !important; }
+  .idkit-mobile-only { display: none !important; }
+`;
+
 type Stage = "loading" | "ready" | "verifying" | "success" | "error";
 
 export default function VerifyPage() {
@@ -132,6 +139,7 @@ function VerifyContent() {
         color: isDark ? "#ffffff" : "#111111",
       }}
     >
+      <style dangerouslySetInnerHTML={{ __html: idkitDesktopOverride }} />
       <div className="w-full max-w-sm text-center">
         <Shield className="mx-auto mb-4 h-10 w-10" style={{ color: "#00d4aa" }} />
 
