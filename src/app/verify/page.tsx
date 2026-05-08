@@ -68,6 +68,7 @@ function VerifyContent() {
   const [rpContext, setRpContext] = useState<RpContext | null>(null);
   const [worldAppId, setWorldAppId] = useState<string>("");
   const [appName, setAppName] = useState<string>("");
+  const [resolvedAction, setResolvedAction] = useState<string>(action);
   const [errorMsg, setErrorMsg] = useState<string>("");
   const autoOpenedRef = useRef(false);
   const isMobile = useMemo(() => isMobileDevice(), []);
@@ -92,6 +93,7 @@ function VerifyContent() {
         setRpContext(data.rp_context);
         setWorldAppId(data.world_app_id);
         setAppName(data.app_name);
+        if (data.action) setResolvedAction(data.action);
         setStage("connecting");
       })
       .catch(() => {
@@ -147,7 +149,7 @@ function VerifyContent() {
 
   const idkit = useIDKitRequest({
     app_id: (worldAppId || "app_") as `app_${string}`,
-    action,
+    action: resolvedAction,
     rp_context: rpContext || { rp_id: "", nonce: "", created_at: 0, expires_at: 0, signature: "" },
     allow_legacy_proofs: true,
     preset: orbLegacy(),

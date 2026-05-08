@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Shield, Plus, Key, Activity, Users, ChevronRight, LogOut, Copy, Check } from "lucide-react";
+import { Shield, Plus, Key, Activity, Users, ChevronRight, LogOut, Copy, Check, Globe, Code } from "lucide-react";
 import Link from "next/link";
 import { useIDKitRequest, IDKitRequestWidget, orbLegacy } from "@worldcoin/idkit";
 import type { IDKitResult, RpContext } from "@worldcoin/idkit-core";
@@ -13,6 +13,8 @@ interface App {
   plan: string;
   mau_current_month: number;
   created_at: string;
+  website_url: string | null;
+  action_name: string | null;
 }
 
 interface Stats {
@@ -100,9 +102,11 @@ function LoginPanel() {
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [showNewApp, setShowNewApp] = useState(false);
-  const [newApp, setNewApp] = useState({ name: "", rp_id: "", signing_key: "" });
-  const [createdKey, setCreatedKey] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [newApp, setNewApp] = useState({ name: "", website_url: "" });
+  const [createdResult, setCreatedResult] = useState<{ api_key: string; embed_code: string; app_id: string } | null>(null);
+  const [copied, setCopied] = useState<"embed" | "key" | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -137,30 +141,34 @@ export default function DashboardPage() {
   };
 
   const handleCreateApp = async () => {
-    if (!token || !newApp.name || !newApp.rp_id || !newApp.signing_key) return;
-    const res = await fetch("/api/apps", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify(newApp),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setCreatedKey(data.api_key);
-      setShowNewApp(false);
-      setNewApp({ name: "", rp_id: "", signing_key: "" });
-      fetchStats();
+    if (!token || !newApp.name || !newApp.website_url) return;
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const res = await fetch("/api/apps", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(newApp),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCreatedResult({ api_key: data.api_key, embed_code: data.embed_code, app_id: data.app.id });
+        setShowNewApp(false);
+        setNewApp({ name: "", website_url: "" });
+        fetchStats();
+      } else {
+        const err = await res.json().catch(() => ({ error: "Unknown error" }));
+        setCreateError(err.error || "Failed to create app");
+      }
+    } finally {
+      setCreating(false);
     }
   };
 
-  const handleCopy = () => {
-    if (createdKey) {
-      navigator.clipboard.writeText(createdKey);
-      setCopied(true);
-      setTimeout(() => {
-        setCopied(false);
-        setCreatedKey(null);
-      }, 2000);
-    }
+  const handleCopy = (text: string, type: "embed" | "key") => {
+    navigator.clipboard.writeText(text);
+    setCopied(type);
+    setTimeout(() => setCopied(null), 2000);
   };
 
   if (loading) {
@@ -211,21 +219,50 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {createdKey && (
+        {createdResult && (
           <div className="mb-8 rounded-xl border border-[var(--success)] bg-[rgba(16,185,129,0.1)] p-6">
-            <h3 className="mb-2 font-semibold text-[var(--success)]">API Key Created</h3>
-            <p className="mb-3 text-sm text-[var(--text-secondary)]">
-              Copy this key now — it won&apos;t be shown again.
-            </p>
-            <code className="block rounded-lg bg-[var(--bg-primary)] px-4 py-3 font-mono text-sm break-all">
-              {createdKey}
-            </code>
+            <h3 className="mb-4 font-semibold text-[var(--success)]">App Created — Add to Your Website</h3>
+
+            <div className="mb-4">
+              <div className="mb-2 flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                <Code className="h-4 w-4" /> Embed Code
+              </div>
+              <pre className="rounded-lg bg-[var(--bg-primary)] px-4 py-3 font-mono text-sm break-all whitespace-pre-wrap">
+                {createdResult.embed_code}
+              </pre>
+              <button
+                onClick={() => handleCopy(createdResult.embed_code, "embed")}
+                className="mt-2 inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-black"
+              >
+                {copied === "embed" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {copied === "embed" ? "Copied!" : "Copy Embed Code"}
+              </button>
+            </div>
+
+            <div className="border-t border-[var(--border-color)] pt-4">
+              <div className="mb-2 flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                <Key className="h-4 w-4" /> API Key (for server-side use)
+              </div>
+              <p className="mb-2 text-xs text-[var(--text-tertiary)]">
+                Copy this key now — it won&apos;t be shown again.
+              </p>
+              <code className="block rounded-lg bg-[var(--bg-primary)] px-4 py-3 font-mono text-xs break-all">
+                {createdResult.api_key}
+              </code>
+              <button
+                onClick={() => handleCopy(createdResult.api_key, "key")}
+                className="mt-2 inline-flex items-center gap-2 rounded-lg border border-[var(--border-color)] px-3 py-1.5 text-xs"
+              >
+                {copied === "key" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                {copied === "key" ? "Copied!" : "Copy API Key"}
+              </button>
+            </div>
+
             <button
-              onClick={handleCopy}
-              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-black"
+              onClick={() => setCreatedResult(null)}
+              className="mt-4 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
             >
-              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              {copied ? "Copied!" : "Copy & Dismiss"}
+              Dismiss
             </button>
           </div>
         )}
@@ -242,7 +279,13 @@ export default function DashboardPage() {
 
         {showNewApp && (
           <div className="mb-6 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-6">
-            <h3 className="mb-4 font-semibold">Register New App</h3>
+            <h3 className="mb-2 font-semibold">Add Your Website</h3>
+            <p className="mb-4 text-sm text-[var(--text-tertiary)]">
+              We handle all the World ID setup automatically. Just tell us your app name and website.
+            </p>
+            {createError && (
+              <p className="mb-4 text-sm text-[var(--error)]">{createError}</p>
+            )}
             <div className="space-y-4">
               <div>
                 <label className="mb-1 block text-sm text-[var(--text-secondary)]">App Name</label>
@@ -254,33 +297,21 @@ export default function DashboardPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm text-[var(--text-secondary)]">World ID App ID</label>
+                <label className="mb-1 block text-sm text-[var(--text-secondary)]">Website URL</label>
                 <input
-                  value={newApp.rp_id}
-                  onChange={(e) => setNewApp({ ...newApp, rp_id: e.target.value })}
-                  className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-4 py-2 font-mono text-sm"
-                  placeholder="app_xxxxxxxxxxxx"
+                  value={newApp.website_url}
+                  onChange={(e) => setNewApp({ ...newApp, website_url: e.target.value })}
+                  className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-4 py-2 text-sm"
+                  placeholder="https://example.com"
                 />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm text-[var(--text-secondary)]">Signing Key (hex)</label>
-                <input
-                  value={newApp.signing_key}
-                  onChange={(e) => setNewApp({ ...newApp, signing_key: e.target.value })}
-                  type="password"
-                  className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-primary)] px-4 py-2 font-mono text-sm"
-                  placeholder="0x..."
-                />
-                <p className="mt-1 text-xs text-[var(--text-tertiary)]">
-                  From your World ID Developer Portal. Encrypted at rest with AES-256-GCM.
-                </p>
               </div>
               <div className="flex gap-3">
                 <button
                   onClick={handleCreateApp}
-                  className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-black"
+                  disabled={!newApp.name || !newApp.website_url || creating}
+                  className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-black hover:bg-[var(--accent-hover)] disabled:opacity-50"
                 >
-                  Create App
+                  {creating ? "Setting up World ID..." : "Create App"}
                 </button>
                 <button
                   onClick={() => setShowNewApp(false)}
@@ -303,7 +334,7 @@ export default function DashboardPage() {
               <div>
                 <h3 className="font-semibold">{app.name}</h3>
                 <p className="text-sm text-[var(--text-tertiary)]">
-                  {app.rp_id} · {app.plan} · {app.mau_current_month || 0} MAU
+                  {app.website_url || app.rp_id} · {app.plan} · {app.mau_current_month || 0} MAU
                 </p>
               </div>
               <ChevronRight className="h-5 w-5 text-[var(--text-tertiary)]" />

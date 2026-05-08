@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   if (appCtx instanceof NextResponse) return appCtx;
 
   const body = await req.json().catch(() => ({}));
-  const action = body.action || "humanauth-verify";
+  const action = appCtx.actionName || body.action || "humanauth-verify";
 
   const signingKey = await decrypt(appCtx.signingKeyEncrypted);
 

@@ -9,6 +9,7 @@ export interface WidgetAppContext {
   ownerId: string;
   plan: string;
   mauCurrentMonth: number;
+  actionName: string | null;
 }
 
 export async function authenticateWidget(
@@ -22,7 +23,7 @@ export async function authenticateWidget(
   const supabase = getSupabaseAdmin();
   const { data: app } = await supabase
     .from("ha_apps")
-    .select("id, name, signing_key_encrypted, rp_id, owner_id, widget_enabled, allowed_domains, plan, mau_current_month")
+    .select("id, name, signing_key_encrypted, rp_id, owner_id, widget_enabled, allowed_domains, plan, mau_current_month, action_name")
     .eq("id", appId)
     .single();
 
@@ -56,6 +57,7 @@ export async function authenticateWidget(
     ownerId: app.owner_id,
     plan: app.plan || "free",
     mauCurrentMonth: app.mau_current_month || 0,
+    actionName: app.action_name || null,
   };
 }
 
