@@ -51,6 +51,52 @@ const result = await client.verify({
 const { rp_context } = await client.getRpContext("login");
 ```
 
+## Login with Humanary (OAuth 2.1 + OIDC)
+
+A universal "Sign in with Humanary" identity layer built on World ID. Users sign in once with World ID and your app gets their Humanary handle, verified-human status, and a stable user_id — without you running an auth server.
+
+### Browser flow
+
+```typescript
+import { signIn, handleCallback, getUser, signOut } from "humanauth-sdk";
+
+// 1. On a "Sign in" button:
+await signIn({
+  clientId: "ha_oauth_xxxxxxxx",
+  redirectUri: "https://yourapp.com/oauth/callback",
+  scopes: ["openid", "profile", "verified_human"],
+});
+
+// 2. On your /oauth/callback page:
+const { tokens } = await handleCallback({ clientId: "ha_oauth_xxxxxxxx" });
+const user = await getUser(tokens);
+console.log(user.handle, user.verified_human);
+
+// 3. Sign out:
+await signOut({ token: tokens.refreshToken!, tokenTypeHint: "refresh_token", clientId: "ha_oauth_xxxxxxxx" });
+```
+
+### Server flow (confidential client)
+
+```typescript
+import { exchangeCodeForTokens, getUserInfo } from "humanauth-sdk";
+
+// In your /oauth/callback route handler:
+const tokens = await exchangeCodeForTokens({
+  clientId: process.env.HUMANARY_CLIENT_ID!,
+  clientSecret: process.env.HUMANARY_CLIENT_SECRET!,
+  code,
+  codeVerifier,
+  redirectUri,
+});
+
+const user = await getUserInfo({ accessToken: tokens.accessToken });
+```
+
+Register your OAuth client at [the dashboard](https://humanauth.vercel.app/dashboard/oauth).
+
+OIDC discovery: `https://humanauth.vercel.app/.well-known/openid-configuration`.
+
 ## What HumanAuth handles for you
 
 | Concern | Without HumanAuth | With HumanAuth |

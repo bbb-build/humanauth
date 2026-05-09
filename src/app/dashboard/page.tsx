@@ -193,6 +193,12 @@ export default function DashboardPage() {
           </Link>
           <div className="flex items-center gap-4">
             <span className="text-sm text-[var(--text-tertiary)]">Dashboard</span>
+            <Link
+              href="/dashboard/oauth"
+              className="rounded-lg border border-[var(--border-color)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:border-[var(--border-hover)]"
+            >
+              OAuth Clients
+            </Link>
             <button
               onClick={handleLogout}
               className="flex items-center gap-1 rounded-lg border border-[var(--border-color)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:border-[var(--border-hover)]"

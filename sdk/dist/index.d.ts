@@ -1,3 +1,85 @@
+interface OAuthClientConfig {
+    clientId: string;
+    redirectUri: string;
+    scopes?: string[];
+    apiUrl?: string;
+}
+interface TokenSet {
+    accessToken: string;
+    refreshToken?: string;
+    idToken?: string;
+    expiresIn: number;
+    scope: string;
+    tokenType: "Bearer";
+}
+interface UserInfo {
+    sub: string;
+    handle?: string;
+    display_name?: string;
+    avatar_url?: string;
+    verified_human?: boolean;
+    verification_level?: "orb" | "device";
+    email?: string;
+    email_verified?: boolean;
+}
+declare function generatePkcePair(): Promise<{
+    verifier: string;
+    challenge: string;
+}>;
+/**
+ * Browser entry point.
+ * Generates PKCE + state, stores them in sessionStorage, and redirects to the authorize endpoint.
+ * After the user signs in and consents, they are redirected back to redirectUri with ?code=&state=.
+ */
+declare function signIn(config: OAuthClientConfig & {
+    state?: string;
+}): Promise<void>;
+interface CallbackResult {
+    tokens: TokenSet;
+    state: string;
+    scopes: string[];
+}
+/**
+ * Browser entry point. Handles ?code=&state= query on the redirectUri page.
+ * Exchanges code for tokens and returns them. Throws on error.
+ */
+declare function handleCallback(opts: {
+    clientId: string;
+    apiUrl?: string;
+}): Promise<CallbackResult>;
+interface ExchangeParams {
+    clientId: string;
+    code: string;
+    codeVerifier: string;
+    redirectUri: string;
+    clientSecret?: string;
+    apiUrl?: string;
+}
+declare function exchangeCodeForTokens(params: ExchangeParams): Promise<TokenSet>;
+interface RefreshParams {
+    clientId: string;
+    refreshToken: string;
+    clientSecret?: string;
+    apiUrl?: string;
+}
+declare function refreshAccessToken(params: RefreshParams): Promise<TokenSet>;
+declare function getUserInfo(opts: {
+    accessToken: string;
+    apiUrl?: string;
+}): Promise<UserInfo>;
+/**
+ * Convenience getter — same as getUserInfo() but accepts a TokenSet.
+ */
+declare function getUser(tokens: TokenSet, apiUrl?: string): Promise<UserInfo>;
+interface SignOutParams {
+    token: string;
+    tokenTypeHint?: "access_token" | "refresh_token";
+    clientId: string;
+    clientSecret?: string;
+    apiUrl?: string;
+}
+declare function signOut(params: SignOutParams): Promise<void>;
+
 interface VerifyParams {
     apiKey: string;
     proof: string;
@@ -39,4 +121,4 @@ declare function getRpContext(params: {
     apiUrl?: string;
 }): Promise<RpContextResult>;
 
-export { HumanAuthClient, type RpContextResult, type VerifyParams, type VerifyResult, getRpContext, verify };
+export { type CallbackResult, type ExchangeParams, HumanAuthClient, type OAuthClientConfig, type RefreshParams, type RpContextResult, type SignOutParams, type TokenSet, type UserInfo, type VerifyParams, type VerifyResult, exchangeCodeForTokens, generatePkcePair, getRpContext, getUser, getUserInfo, handleCallback, refreshAccessToken, signIn, signOut, verify };
