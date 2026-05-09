@@ -51,6 +51,18 @@ const nextConfig: NextConfig = {
           { key: "Access-Control-Allow-Headers", value: "Content-Type" },
         ],
       },
+      {
+        // OAuth 2.0 / OIDC エンドポイント。
+        // public client (PKCE) がブラウザから直接叩くため CORS 開放が必須。
+        // credentials は含めない前提（PKCEで認証）なので Allow-Origin: * で問題ない。
+        // Authorization は confidential client の Basic 認証用に許可する。
+        source: "/api/oauth/:path*",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: "Access-Control-Allow-Methods", value: "GET, POST, OPTIONS" },
+          { key: "Access-Control-Allow-Headers", value: "Content-Type, Authorization" },
+        ],
+      },
     ];
   },
 };

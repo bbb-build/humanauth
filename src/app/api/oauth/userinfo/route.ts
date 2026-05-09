@@ -51,3 +51,7 @@ async function handle(req: NextRequest) {
 
 export const GET = handle;
 export const POST = handle;
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204 });
+}

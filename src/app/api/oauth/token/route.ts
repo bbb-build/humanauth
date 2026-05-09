@@ -204,3 +204,7 @@ async function readForm(req: NextRequest): Promise<URLSearchParams> {
 function tokenError(code: string, description: string, status = 400) {
   return NextResponse.json({ error: code, error_description: description }, { status });
 }
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204 });
+}
