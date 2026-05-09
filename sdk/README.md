@@ -1,17 +1,17 @@
-# @humanauth/sdk
+# humanauth-sdk
 
-World ID authentication gateway SDK. Add human verification to any app in 2 lines of code.
+World ID authentication gateway SDK. Add human verification to any app in 2 lines of code, plus a universal "Sign in with Humanary" identity layer (OAuth 2.1 / OIDC).
 
 ## Install
 
 ```bash
-npm install @humanauth/sdk @worldcoin/idkit
+npm install humanauth-sdk @worldcoin/idkit
 ```
 
 ## React — Drop-in Component
 
 ```tsx
-import { HumanAuth } from "@humanauth/sdk/react";
+import { HumanAuth } from "humanauth-sdk/react";
 
 function App() {
   return (
@@ -35,7 +35,7 @@ The component handles the full flow: fetch RP context → open World ID widget �
 ## Server-side — API Client
 
 ```typescript
-import { HumanAuthClient } from "@humanauth/sdk";
+import { HumanAuthClient } from "humanauth-sdk";
 
 const client = new HumanAuthClient({ apiKey: "ha_your_key" });
 
