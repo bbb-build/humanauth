@@ -39,3 +39,9 @@ supabase/migrations/          ← DBスキーマ（ha_ prefix）
 
 ## Revenue Model
 - Free: 1,000 MAU / Pro: $49/月 / Business: $199/月
+
+## Vision / Roadmap
+中長期ビジョンと v0.2 の意思決定は `docs/VISION.md` を参照。
+- v0.2 は World ID ラッパとしての完成度に集中（OAuth フロー安定化、ダッシュボード、課金、ドッグフード）
+- x402 / agent principal 層は視野には入れるが実装は需要が立ってから
+- 「window が閉じる」系の煽りは撤回（根拠が弱い）
