@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Shield, Plus, Key, Activity, Users, ChevronRight, LogOut, Copy, Check, Globe, Code } from "lucide-react";
+import { Shield, Plus, Key, Activity, Users, ChevronRight, LogOut, Copy, Check, Code, AtSign } from "lucide-react";
 import Link from "next/link";
 import { useIDKitRequest, IDKitRequestWidget, orbLegacy } from "@worldcoin/idkit";
 import type { IDKitResult, RpContext } from "@worldcoin/idkit-core";
@@ -134,7 +134,12 @@ export default function DashboardPage() {
     fetchStats();
   }, [fetchStats]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/sso-logout", { method: "POST" });
+    } catch {
+      // SSO logoutが失敗してもダッシュボードJWTは確実に消す
+    }
     localStorage.removeItem("ha_token");
     setToken(null);
     setStats(null);
@@ -191,25 +196,31 @@ export default function DashboardPage() {
             <Shield className="h-6 w-6 text-[var(--accent)]" />
             <span className="text-lg font-bold">HumanAuth</span>
           </Link>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-[var(--text-tertiary)]">Dashboard</span>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <span className="hidden text-sm text-[var(--text-tertiary)] md:inline">Dashboard</span>
             <Link
               href="/dashboard/oauth"
-              className="rounded-lg border border-[var(--border-color)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:border-[var(--border-hover)]"
+              aria-label="OAuth Clients"
+              className="flex items-center gap-1.5 rounded-lg border border-[var(--border-color)] px-2.5 py-1.5 text-xs text-[var(--text-secondary)] hover:border-[var(--border-hover)] sm:px-3"
             >
-              OAuth Clients
+              <Key className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">OAuth Clients</span>
             </Link>
             <Link
               href="/account"
-              className="rounded-lg border border-[var(--border-color)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:border-[var(--border-hover)]"
+              aria-label="Account"
+              className="flex items-center gap-1.5 rounded-lg border border-[var(--border-color)] px-2.5 py-1.5 text-xs text-[var(--text-secondary)] hover:border-[var(--border-hover)] sm:px-3"
             >
-              Account
+              <AtSign className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Account</span>
             </Link>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-1 rounded-lg border border-[var(--border-color)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:border-[var(--border-hover)]"
+              aria-label="Sign out"
+              className="flex items-center gap-1.5 rounded-lg border border-[var(--border-color)] px-2.5 py-1.5 text-xs text-[var(--text-secondary)] hover:border-[var(--border-hover)] sm:px-3"
             >
-              <LogOut className="h-3 w-3" /> Sign out
+              <LogOut className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Sign out</span>
             </button>
           </div>
         </div>
