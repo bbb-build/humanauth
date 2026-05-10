@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, AtSign, Check, Loader2, Save, ShieldCheck } from "lucide-react";
+import { ArrowLeft, AtSign, Check, Loader2, LogOut, Save, ShieldCheck } from "lucide-react";
 
 interface UserProfile {
   id: string;
@@ -91,6 +91,18 @@ export default function AccountPage() {
     }
   }
 
+  async function onSignOut() {
+    try {
+      await fetch("/api/auth/sso-logout", { method: "POST" });
+    } catch {
+      // SSOクッキー破棄に失敗してもJWTは確実に消す
+    }
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("ha_token");
+      window.location.href = "/dashboard";
+    }
+  }
+
   async function onSaveProfile() {
     if (!user) return;
     setSavingProfile(true);
@@ -149,13 +161,23 @@ export default function AccountPage() {
 
   return (
     <main className="mx-auto max-w-2xl p-6">
-      <Link
-        href="/dashboard"
-        className="mb-6 inline-flex items-center gap-2 text-sm text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to Dashboard
-      </Link>
+      <div className="mb-6 flex items-center justify-between gap-2">
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center gap-2 text-sm text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Dashboard
+        </Link>
+        <button
+          onClick={onSignOut}
+          aria-label="Sign out"
+          className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border-color)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:border-[var(--border-hover)]"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          Sign out
+        </button>
+      </div>
 
       <h1 className="mb-2 flex items-center gap-2 text-2xl font-bold">
         <AtSign className="h-6 w-6 text-[var(--accent)]" />
