@@ -199,6 +199,12 @@ export default function DashboardPage() {
             >
               OAuth Clients
             </Link>
+            <Link
+              href="/account"
+              className="rounded-lg border border-[var(--border-color)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:border-[var(--border-hover)]"
+            >
+              Account
+            </Link>
             <button
               onClick={handleLogout}
               className="flex items-center gap-1 rounded-lg border border-[var(--border-color)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:border-[var(--border-hover)]"
