@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Shield, Plus, Copy, Check, Trash2, ArrowLeft, Key, Pencil } from "lucide-react";
+import { Shield, Plus, Copy, Check, Trash2, ArrowLeft, Key, Pencil, RotateCw } from "lucide-react";
 
 interface OAuthClient {
   client_id: string;
@@ -154,6 +154,30 @@ export default function OAuthClientsPage() {
     } else {
       setError("Failed to delete client");
     }
+  };
+
+  const onRotateSecret = async (c: OAuthClient) => {
+    if (
+      !confirm(
+        `Rotate client_secret for ${c.client_id}?\n\nThe old secret will stop working IMMEDIATELY. Make sure you can update the RP in time.`,
+      )
+    )
+      return;
+    const res = await fetch(`/api/oauth-clients/${c.client_id}/rotate-secret`, {
+      method: "POST",
+      headers: authHeader(),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setError(data.error || "Failed to rotate secret");
+      return;
+    }
+    // 既存の "Created" 表示パネルを再利用して新secretを見せる
+    setCreatedResult({
+      client: c,
+      client_secret: data.client_secret,
+      note: data.note,
+    });
   };
 
   const handleCopy = (text: string, id: string) => {
@@ -445,6 +469,16 @@ export default function OAuthClientsPage() {
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
+                    {c.client_type === "confidential" && (
+                      <button
+                        onClick={() => onRotateSecret(c)}
+                        className="rounded-lg p-2"
+                        style={{ border: "1px solid #2f323e", color: "#fbbf24" }}
+                        title="Rotate secret"
+                      >
+                        <RotateCw className="h-4 w-4" />
+                      </button>
+                    )}
                     <button
                       onClick={() => onDelete(c.client_id)}
                       className="rounded-lg p-2"
