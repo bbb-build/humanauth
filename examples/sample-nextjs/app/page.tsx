@@ -77,13 +77,47 @@ export default function HomePage() {
   }
 
   return (
-    <main
-      style={{
-        maxWidth: 720,
-        margin: "0 auto",
-        padding: "64px 24px",
-      }}
-    >
+    <>
+      <header
+        style={{
+          borderBottom: "1px solid #2f323e",
+          padding: "16px 24px",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 720,
+            margin: "0 auto",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 16,
+          }}
+        >
+          <div style={{ fontWeight: 600, fontSize: 14 }}>Humanary Sample</div>
+          {tokens ? (
+            <nav style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <a href={`${API_URL}/dashboard`} target="_blank" rel="noreferrer" style={headerLinkStyle}>
+                Dashboard
+              </a>
+              <a href={`${API_URL}/account`} target="_blank" rel="noreferrer" style={headerLinkStyle}>
+                Account
+              </a>
+              <button onClick={handleSignOut} disabled={loading} style={headerSignOutStyle}>
+                Sign out
+              </button>
+            </nav>
+          ) : null}
+        </div>
+      </header>
+
+      <main
+        style={{
+          maxWidth: 720,
+          margin: "0 auto",
+          padding: "64px 24px",
+        }}
+      >
       <h1 style={{ fontSize: 32, marginBottom: 8 }}>
         Login with Humanary — Sample
       </h1>
@@ -153,22 +187,6 @@ export default function HomePage() {
             </pre>
           </Section>
 
-          <button
-            onClick={handleSignOut}
-            disabled={loading}
-            style={{
-              background: "transparent",
-              color: "#ef4444",
-              border: "1px solid #ef4444",
-              borderRadius: 8,
-              padding: "10px 18px",
-              fontSize: 14,
-              cursor: "pointer",
-              marginTop: 8,
-            }}
-          >
-            Sign out (revoke token)
-          </button>
         </div>
       )}
 
@@ -190,9 +208,31 @@ export default function HomePage() {
           )}
         </pre>
       </details>
-    </main>
+      </main>
+    </>
   );
 }
+
+const headerLinkStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "6px 12px",
+  fontSize: 13,
+  color: "#a8b0bc",
+  border: "1px solid #2f323e",
+  borderRadius: 6,
+  textDecoration: "none",
+};
+
+const headerSignOutStyle: React.CSSProperties = {
+  padding: "6px 12px",
+  fontSize: 13,
+  color: "#a8b0bc",
+  background: "transparent",
+  border: "1px solid #2f323e",
+  borderRadius: 6,
+  cursor: "pointer",
+};
 
 function Section({
   title,

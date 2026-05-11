@@ -1,35 +1,12 @@
 import Link from "next/link";
 import { Shield, Zap, BarChart3, Key, Code, Globe } from "lucide-react";
+import LandingNav from "./_components/LandingNav";
 
 export default function LandingPage() {
   return (
     <div className="min-h-screen">
-      {/* Nav */}
-      <nav className="border-b border-[var(--border-color)] px-6 py-4">
-        <div className="mx-auto flex max-w-6xl items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Shield className="h-6 w-6 text-[var(--accent)]" />
-            <span className="text-lg font-bold">HumanAuth</span>
-          </div>
-          <div className="flex items-center gap-6">
-            <Link href="#features" className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-              Features
-            </Link>
-            <Link href="#pricing" className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-              Pricing
-            </Link>
-            <Link href="/docs" className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-              Docs
-            </Link>
-            <Link
-              href="/dashboard"
-              className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-black hover:bg-[var(--accent-hover)]"
-            >
-              Dashboard
-            </Link>
-          </div>
-        </div>
-      </nav>
+      {/* Nav — サインイン時は Dashboard / Account / Sign out に切替 */}
+      <LandingNav />
 
       {/* Hero */}
       <section className="px-6 py-24 text-center">
