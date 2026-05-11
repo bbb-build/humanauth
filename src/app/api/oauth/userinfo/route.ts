@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAccessToken } from "@/lib/oauth";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { withCors, corsPreflightResponse } from "@/lib/oauth-cors";
+import { logger, errCtx } from "@/lib/logger";
 
 // OIDC Userinfo Endpoint
 // GET/POST /api/oauth/userinfo
@@ -24,12 +25,20 @@ async function handle(req: NextRequest) {
     return withCors(NextResponse.json({ error: "invalid_token" }, { status: 401 }), req);
   }
 
-  const supabase = getSupabaseAdmin();
-  const { data: user } = await supabase
-    .from("ha_users")
-    .select("id, handle, display_name, avatar_url, email, email_verified, verification_level")
-    .eq("id", verified.userId)
-    .single();
+  let user;
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .from("ha_users")
+      .select("id, handle, display_name, avatar_url, email, email_verified, verification_level")
+      .eq("id", verified.userId)
+      .single();
+    if (error) throw new Error(error.message);
+    user = data;
+  } catch (e) {
+    logger.error("userinfo-db-failed", { userId: verified.userId, ...errCtx(e) });
+    return withCors(NextResponse.json({ error: "server_error" }, { status: 500 }), req);
+  }
 
   if (!user) {
     return withCors(NextResponse.json({ error: "invalid_token" }, { status: 401 }), req);

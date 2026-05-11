@@ -9,6 +9,7 @@ import {
   consentCoversRequest,
 } from "@/lib/oauth";
 import { getSsoUserId } from "@/lib/sso-session";
+import { logger, errCtx } from "@/lib/logger";
 
 // OAuth Authorization Endpoint
 // GET /api/oauth/authorize?response_type=code&client_id=xxx&redirect_uri=yyy
@@ -114,6 +115,7 @@ export async function GET(req: NextRequest) {
     if (state) back.searchParams.set("state", state);
     return NextResponse.redirect(back);
   } catch (e) {
+    logger.error("authorize-issue-code-failed", { clientId, userId, ...errCtx(e) });
     return redirectError(redirectUri, state, "server_error", e instanceof Error ? e.message : "Internal error");
   }
 }
