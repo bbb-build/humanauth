@@ -28,9 +28,12 @@ __export(src_exports, {
   getUser: () => getUser,
   getUserInfo: () => getUserInfo,
   handleCallback: () => handleCallback,
+  handleSilentCallback: () => handleSilentCallback,
   refreshAccessToken: () => refreshAccessToken,
   signIn: () => signIn,
   signOut: () => signOut,
+  silentRenew: () => silentRenew,
+  startAutoRefresh: () => startAutoRefresh,
   verify: () => verify
 });
 module.exports = __toCommonJS(src_exports);
@@ -180,6 +183,153 @@ async function getUserInfo(opts) {
 async function getUser(tokens, apiUrl) {
   return getUserInfo({ accessToken: tokens.accessToken, apiUrl });
 }
+function startAutoRefresh(params) {
+  if (!params.initialTokens.refreshToken) {
+    throw new Error("startAutoRefresh requires a refresh_token on initialTokens");
+  }
+  const leeway = Math.max(1, params.refreshLeewaySec ?? 60);
+  let stopped = false;
+  let timerId = null;
+  let currentRefreshToken = params.initialTokens.refreshToken;
+  let nextDelaySec = Math.max(1, params.initialTokens.expiresIn - leeway);
+  const tick = async () => {
+    if (stopped) return;
+    try {
+      const next = await refreshAccessToken({
+        clientId: params.clientId,
+        refreshToken: currentRefreshToken,
+        clientSecret: params.clientSecret,
+        apiUrl: params.apiUrl
+      });
+      if (stopped) return;
+      if (next.refreshToken) currentRefreshToken = next.refreshToken;
+      nextDelaySec = Math.max(1, next.expiresIn - leeway);
+      params.onUpdate(next);
+      schedule();
+    } catch (err) {
+      if (stopped) return;
+      params.onError?.(err instanceof Error ? err : new Error(String(err)));
+    }
+  };
+  const schedule = () => {
+    if (stopped) return;
+    timerId = setTimeout(tick, nextDelaySec * 1e3);
+  };
+  schedule();
+  return {
+    stop() {
+      stopped = true;
+      if (timerId) {
+        clearTimeout(timerId);
+        timerId = null;
+      }
+    }
+  };
+}
+var SILENT_RENEW_MESSAGE_TYPE = "humad:silent-renew";
+async function silentRenew(params) {
+  if (typeof window === "undefined") {
+    throw new Error("silentRenew() must run in a browser");
+  }
+  const apiUrl = params.apiUrl || DEFAULT_API_URL;
+  const scopes = params.scopes || ["openid", "profile", "verified_human"];
+  const { verifier, challenge } = await generatePkcePair();
+  const state = generateState();
+  const pending = {
+    verifier,
+    state,
+    redirectUri: params.redirectUri,
+    scopes
+  };
+  storage().setItem(STORAGE_PREFIX + state, JSON.stringify(pending));
+  const url = new URL(`${apiUrl}/api/oauth/authorize`);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("client_id", params.clientId);
+  url.searchParams.set("redirect_uri", params.redirectUri);
+  url.searchParams.set("scope", scopes.join(" "));
+  url.searchParams.set("state", state);
+  url.searchParams.set("code_challenge", challenge);
+  url.searchParams.set("code_challenge_method", "S256");
+  url.searchParams.set("prompt", "none");
+  const iframe = document.createElement("iframe");
+  iframe.style.display = "none";
+  iframe.setAttribute("aria-hidden", "true");
+  iframe.src = url.toString();
+  const timeoutMs = params.timeoutMs ?? 1e4;
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const cleanup = () => {
+      settled = true;
+      window.removeEventListener("message", onMessage);
+      clearTimeout(timer);
+      if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+      storage().removeItem(STORAGE_PREFIX + state);
+    };
+    const onMessage = (ev) => {
+      const data = ev.data;
+      if (!data || data.type !== SILENT_RENEW_MESSAGE_TYPE) return;
+      if (data.state !== state) return;
+      const expectedOrigin = new URL(params.redirectUri).origin;
+      if (ev.origin !== expectedOrigin) return;
+      if (settled) return;
+      if (data.ok && data.tokens && data.scopes) {
+        cleanup();
+        resolve({ tokens: data.tokens, state, scopes: data.scopes });
+      } else {
+        cleanup();
+        reject(new Error(data.error || "silent renew failed"));
+      }
+    };
+    const timer = setTimeout(() => {
+      if (settled) return;
+      cleanup();
+      reject(new Error("silent renew timed out"));
+    }, timeoutMs);
+    window.addEventListener("message", onMessage);
+    document.body.appendChild(iframe);
+  });
+}
+async function handleSilentCallback(opts) {
+  if (typeof window === "undefined") return false;
+  if (window.parent === window) return false;
+  const params = new URLSearchParams(window.location.search);
+  const state = params.get("state");
+  if (!state) return false;
+  const post = (msg) => {
+    window.parent.postMessage({ type: SILENT_RENEW_MESSAGE_TYPE, ...msg }, "*");
+  };
+  const errorCode = params.get("error");
+  if (errorCode) {
+    const desc = params.get("error_description");
+    post({ ok: false, error: `${errorCode}${desc ? ` \u2014 ${desc}` : ""}`, state });
+    return true;
+  }
+  const code = params.get("code");
+  if (!code) {
+    post({ ok: false, error: "Missing code in callback URL", state });
+    return true;
+  }
+  const raw = storage().getItem(STORAGE_PREFIX + state);
+  if (!raw) {
+    post({ ok: false, error: "Unknown state \u2014 possible CSRF or expired flow", state });
+    return true;
+  }
+  const pending = JSON.parse(raw);
+  storage().removeItem(STORAGE_PREFIX + state);
+  try {
+    const tokens = await exchangeCodeForTokens({
+      clientId: opts.clientId,
+      code,
+      codeVerifier: pending.verifier,
+      redirectUri: pending.redirectUri,
+      apiUrl: opts.apiUrl
+    });
+    post({ ok: true, tokens, scopes: pending.scopes, state });
+  } catch (err) {
+    post({ ok: false, error: err instanceof Error ? err.message : String(err), state });
+  }
+  return true;
+}
 async function signOut(params) {
   const apiUrl = params.apiUrl || DEFAULT_API_URL;
   const mode = params.mode ?? "revoke";
@@ -285,8 +435,11 @@ async function getRpContext(params) {
   getUser,
   getUserInfo,
   handleCallback,
+  handleSilentCallback,
   refreshAccessToken,
   signIn,
   signOut,
+  silentRenew,
+  startAutoRefresh,
   verify
 });
