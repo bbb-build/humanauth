@@ -3,6 +3,7 @@ import { jwtVerify } from "jose";
 import { getOAuthClient } from "@/lib/oauth";
 import { getPublicKey, getIssuer } from "@/lib/oidc-keys";
 import { revokeSsoSession } from "@/lib/sso-session";
+import { corsPreflightResponse, withCors } from "@/lib/oauth-cors";
 
 // OIDC RP-Initiated Logout 1.0
 // https://openid.net/specs/openid-connect-rpinitiated-1_0.html
@@ -112,4 +113,8 @@ function errorPage(code: string, description: string): NextResponse {
     { error: code, error_description: description },
     { status: 400 },
   );
+}
+
+export async function OPTIONS(req: NextRequest) {
+  return corsPreflightResponse(req);
 }

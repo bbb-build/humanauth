@@ -11,6 +11,7 @@ import {
 } from "@/lib/oauth";
 import { signIdToken } from "@/lib/oidc-id-token";
 import { hashToken } from "@/lib/oauth";
+import { withCors, corsPreflightResponse } from "@/lib/oauth-cors";
 
 // OAuth Token Endpoint
 // POST /api/oauth/token
@@ -25,16 +26,18 @@ export async function POST(req: NextRequest) {
   // クライアント認証（Authorization: Basic か client_id/client_secret form）
   const auth = await authenticateClient(req, form);
   if (!auth.ok) {
-    return tokenError("invalid_client", auth.reason, 401);
+    return withCors(tokenError("invalid_client", auth.reason, 401), req);
   }
 
+  let res: NextResponse;
   if (grantType === "authorization_code") {
-    return await handleAuthorizationCode(form, auth.clientId, auth.client);
+    res = await handleAuthorizationCode(form, auth.clientId, auth.client);
+  } else if (grantType === "refresh_token") {
+    res = await handleRefreshToken(form, auth.clientId);
+  } else {
+    res = tokenError("unsupported_grant_type", `grant_type=${grantType} is not supported`);
   }
-  if (grantType === "refresh_token") {
-    return await handleRefreshToken(form, auth.clientId);
-  }
-  return tokenError("unsupported_grant_type", `grant_type=${grantType} is not supported`);
+  return withCors(res, req);
 }
 
 async function handleAuthorizationCode(
@@ -205,6 +208,6 @@ function tokenError(code: string, description: string, status = 400) {
   return NextResponse.json({ error: code, error_description: description }, { status });
 }
 
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204 });
+export async function OPTIONS(req: NextRequest) {
+  return corsPreflightResponse(req);
 }
