@@ -2,12 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getOwnerId, unauthorized } from "@/lib/auth-helpers";
 import { rateLimit } from "@/lib/rate-limit";
+import { getUserEmail } from "@/lib/email-store";
 
 // 認証中ユーザー（JWT.sub = nullifier_hash）の自プロフィール取得・更新。
 // ハンドル変更だけは別ルート /api/users/me/handle に分離（バリデーションが重いため）。
+//
+// email は ha_users.email に暗号化保存されているため、SELECT には含めず
+// レスポンス組立時に email-store 経由で復号して merge する。
 
 const SELECT_COLS =
-  "id, handle, handle_is_custom, display_name, avatar_url, email, email_verified, verification_level, created_at";
+  "id, handle, handle_is_custom, display_name, avatar_url, email_verified, verification_level, created_at";
+
+async function attachEmail<T extends { id: string; email_verified?: boolean | null }>(
+  user: T,
+): Promise<T & { email: string | null; email_verified: boolean }> {
+  const { email, emailVerified } = await getUserEmail(user.id);
+  return { ...user, email, email_verified: emailVerified };
+}
 
 export async function GET(req: NextRequest) {
   const nullifier = await getOwnerId(req);
@@ -23,7 +34,8 @@ export async function GET(req: NextRequest) {
   if (error || !data) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
-  return NextResponse.json({ user: data });
+  const user = await attachEmail(data as { id: string; email_verified?: boolean | null });
+  return NextResponse.json({ user });
 }
 
 // display_name と avatar_url の部分更新。両方任意。null許容（クリア）。
@@ -89,5 +101,6 @@ export async function PATCH(req: NextRequest) {
   if (error || !data) {
     return NextResponse.json({ error: "Update failed" }, { status: 500 });
   }
-  return NextResponse.json({ user: data });
+  const user = await attachEmail(data as { id: string; email_verified?: boolean | null });
+  return NextResponse.json({ user });
 }

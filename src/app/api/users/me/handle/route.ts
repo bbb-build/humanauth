@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { getOwnerId, unauthorized } from "@/lib/auth-helpers";
 import { rateLimit } from "@/lib/rate-limit";
 import { validateHandle } from "@/lib/handle";
+import { getUserEmail } from "@/lib/email-store";
 
 // ハンドル（preferred_username）の変更。
 // ・ユーザー任意の `@xxx` を最大1件保持。形式・予約語・ユニーク制約を全て満たすこと
@@ -64,7 +65,7 @@ export async function PATCH(req: NextRequest) {
     .update({ handle: newHandle, handle_is_custom: true })
     .eq("id", me.id)
     .select(
-      "id, handle, handle_is_custom, display_name, avatar_url, email, email_verified, verification_level, created_at",
+      "id, handle, handle_is_custom, display_name, avatar_url, email_verified, verification_level, created_at",
     )
     .single();
 
@@ -75,5 +76,9 @@ export async function PATCH(req: NextRequest) {
     }
     return NextResponse.json({ error: "Update failed" }, { status: 500 });
   }
-  return NextResponse.json({ user: data });
+  // email は暗号化保存されているため、レスポンス時に復号して merge する
+  const { email, emailVerified } = await getUserEmail((data as { id: string }).id);
+  return NextResponse.json({
+    user: { ...(data as Record<string, unknown>), email, email_verified: emailVerified },
+  });
 }

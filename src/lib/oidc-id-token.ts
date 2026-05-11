@@ -2,6 +2,7 @@ import { SignJWT } from "jose";
 import { getSupabaseAdmin } from "./supabase";
 import { getPrivateKey, getKeyId, getIssuer } from "./oidc-keys";
 import type { Scope } from "./oauth";
+import { getUserEmail } from "./email-store";
 
 // id_token (JWT) 生成 — OIDC仕様準拠
 export async function signIdToken(params: {
@@ -13,7 +14,7 @@ export async function signIdToken(params: {
   const supabase = getSupabaseAdmin();
   const { data: user } = await supabase
     .from("ha_users")
-    .select("handle, display_name, avatar_url, email, email_verified, verification_level")
+    .select("handle, display_name, avatar_url, verification_level")
     .eq("id", params.userId)
     .single();
 
@@ -38,9 +39,12 @@ export async function signIdToken(params: {
       if (user.display_name) payload.name = user.display_name;
       if (user.avatar_url) payload.picture = user.avatar_url;
     }
-    if (params.scopes.includes("email") && user.email) {
-      payload.email = user.email;
-      payload.email_verified = user.email_verified;
+    if (params.scopes.includes("email")) {
+      const { email, emailVerified } = await getUserEmail(params.userId);
+      if (email) {
+        payload.email = email;
+        payload.email_verified = emailVerified;
+      }
     }
   }
 

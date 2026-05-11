@@ -5,6 +5,7 @@ import { withCors, corsPreflightResponse } from "@/lib/oauth-cors";
 import { logger, errCtx } from "@/lib/logger";
 import { recordAccess, newRequestId } from "@/lib/access-log";
 import { recordSecurityEvent } from "@/lib/security-event";
+import { getUserEmail } from "@/lib/email-store";
 
 // OIDC Userinfo Endpoint
 // GET/POST /api/oauth/userinfo
@@ -44,7 +45,7 @@ async function handle(req: NextRequest) {
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
       .from("ha_users")
-      .select("id, handle, display_name, avatar_url, email, email_verified, verification_level")
+      .select("id, handle, display_name, avatar_url, verification_level")
       .eq("id", verified.userId)
       .single();
     if (error) throw new Error(error.message);
@@ -75,9 +76,12 @@ async function handle(req: NextRequest) {
     claims.verified_human = true;
     claims.verification_level = user.verification_level;
   }
-  if (verified.scopes.includes("email") && user.email) {
-    claims.email = user.email;
-    claims.email_verified = user.email_verified;
+  if (verified.scopes.includes("email")) {
+    const { email, emailVerified } = await getUserEmail(verified.userId);
+    if (email) {
+      claims.email = email;
+      claims.email_verified = emailVerified;
+    }
   }
 
   // 成功時のみアクセスログ記録（claim が実際に渡る瞬間が証跡対象）
