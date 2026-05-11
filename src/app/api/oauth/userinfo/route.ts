@@ -3,6 +3,8 @@ import { verifyAccessToken } from "@/lib/oauth";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { withCors, corsPreflightResponse } from "@/lib/oauth-cors";
 import { logger, errCtx } from "@/lib/logger";
+import { recordAccess, newRequestId } from "@/lib/access-log";
+import { recordSecurityEvent } from "@/lib/security-event";
 
 // OIDC Userinfo Endpoint
 // GET/POST /api/oauth/userinfo
@@ -15,13 +17,25 @@ import { logger, errCtx } from "@/lib/logger";
 //   email           → email, email_verified
 
 async function handle(req: NextRequest) {
+  const requestId = newRequestId();
+
   const auth = req.headers.get("authorization");
   if (!auth?.startsWith("Bearer ")) {
+    await recordSecurityEvent(req, {
+      eventType: "invalid_token",
+      requestId,
+      errorDetail: { reason: "missing_bearer_header" },
+    });
     return withCors(NextResponse.json({ error: "invalid_token" }, { status: 401 }), req);
   }
   const token = auth.slice(7).trim();
   const verified = await verifyAccessToken(token);
   if (!verified) {
+    await recordSecurityEvent(req, {
+      eventType: "invalid_token",
+      requestId,
+      errorDetail: { reason: "verify_failed" },
+    });
     return withCors(NextResponse.json({ error: "invalid_token" }, { status: 401 }), req);
   }
 
@@ -41,6 +55,12 @@ async function handle(req: NextRequest) {
   }
 
   if (!user) {
+    await recordSecurityEvent(req, {
+      eventType: "invalid_token",
+      clientId: verified.clientId,
+      requestId,
+      errorDetail: { reason: "user_not_found", userId: verified.userId },
+    });
     return withCors(NextResponse.json({ error: "invalid_token" }, { status: 401 }), req);
   }
 
@@ -59,6 +79,16 @@ async function handle(req: NextRequest) {
     claims.email = user.email;
     claims.email_verified = user.email_verified;
   }
+
+  // 成功時のみアクセスログ記録（claim が実際に渡る瞬間が証跡対象）
+  await recordAccess(req, {
+    userId: verified.userId,
+    clientId: verified.clientId,
+    endpoint: "userinfo",
+    scopes: verified.scopes,
+    claimsReturned: Object.keys(claims),
+    requestId,
+  });
 
   return withCors(NextResponse.json(claims), req);
 }

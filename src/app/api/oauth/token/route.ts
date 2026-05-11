@@ -13,6 +13,8 @@ import { signIdToken } from "@/lib/oidc-id-token";
 import { hashToken } from "@/lib/oauth";
 import { withCors, corsPreflightResponse } from "@/lib/oauth-cors";
 import { logger, errCtx } from "@/lib/logger";
+import { recordAccess, newRequestId } from "@/lib/access-log";
+import { recordSecurityEvent, type SecurityEventType } from "@/lib/security-event";
 
 // OAuth Token Endpoint
 // POST /api/oauth/token
@@ -21,6 +23,7 @@ import { logger, errCtx } from "@/lib/logger";
 // Content-Type: application/x-www-form-urlencoded
 
 export async function POST(req: NextRequest) {
+  const requestId = newRequestId();
   const form = await readForm(req);
   const grantType = form.get("grant_type");
 
@@ -28,15 +31,21 @@ export async function POST(req: NextRequest) {
   const auth = await authenticateClient(req, form);
   if (!auth.ok) {
     logger.warn("token-client-auth-failed", { reason: auth.reason, grantType });
+    await recordSecurityEvent(req, {
+      eventType: auth.eventType,
+      clientId: auth.clientIdAttempted,
+      requestId,
+      errorDetail: { reason: auth.reason, grantType },
+    });
     return withCors(tokenError("invalid_client", auth.reason, 401), req);
   }
 
   let res: NextResponse;
   try {
     if (grantType === "authorization_code") {
-      res = await handleAuthorizationCode(form, auth.clientId, auth.client);
+      res = await handleAuthorizationCode(req, form, auth.clientId, auth.client, requestId);
     } else if (grantType === "refresh_token") {
-      res = await handleRefreshToken(form, auth.clientId);
+      res = await handleRefreshToken(req, form, auth.clientId, requestId);
     } else {
       res = tokenError("unsupported_grant_type", `grant_type=${grantType} is not supported`);
     }
@@ -49,9 +58,11 @@ export async function POST(req: NextRequest) {
 }
 
 async function handleAuthorizationCode(
+  req: NextRequest,
   form: URLSearchParams,
   clientId: string,
   client: OAuthClientRow,
+  requestId: string,
 ) {
   const code = form.get("code");
   const redirectUri = form.get("redirect_uri");
@@ -62,18 +73,50 @@ async function handleAuthorizationCode(
   }
 
   const consumed = await consumeAuthCode(code);
-  if (!consumed) return tokenError("invalid_grant", "Code is invalid, expired, or already used");
+  if (!consumed) {
+    await recordSecurityEvent(req, {
+      eventType: "invalid_grant",
+      clientId,
+      requestId,
+      errorDetail: { reason: "code_invalid_expired_or_reused" },
+    });
+    return tokenError("invalid_grant", "Code is invalid, expired, or already used");
+  }
 
   if (consumed.clientId !== clientId) {
+    await recordSecurityEvent(req, {
+      eventType: "invalid_grant",
+      clientId,
+      requestId,
+      errorDetail: { reason: "code_client_mismatch", expected: consumed.clientId },
+    });
     return tokenError("invalid_grant", "Code does not belong to this client");
   }
   if (consumed.redirectUri !== redirectUri) {
+    await recordSecurityEvent(req, {
+      eventType: "invalid_grant",
+      clientId,
+      requestId,
+      errorDetail: { reason: "redirect_uri_mismatch" },
+    });
     return tokenError("invalid_grant", "redirect_uri mismatch");
   }
   if (!isRedirectUriAllowed(redirectUri, client.redirect_uris || [])) {
+    await recordSecurityEvent(req, {
+      eventType: "invalid_grant",
+      clientId,
+      requestId,
+      errorDetail: { reason: "redirect_uri_no_longer_registered" },
+    });
     return tokenError("invalid_grant", "redirect_uri is no longer registered");
   }
   if (!verifyPkce(codeVerifier, consumed.pkceCodeChallenge, consumed.pkceMethod)) {
+    await recordSecurityEvent(req, {
+      eventType: "invalid_grant",
+      clientId,
+      requestId,
+      errorDetail: { reason: "pkce_verification_failed" },
+    });
     return tokenError("invalid_grant", "PKCE verification failed");
   }
 
@@ -92,6 +135,14 @@ async function handleAuthorizationCode(
       })
     : null;
 
+  await recordAccess(req, {
+    userId: consumed.userId,
+    clientId,
+    endpoint: "token_issue",
+    scopes: consumed.scopes,
+    requestId,
+  });
+
   return NextResponse.json({
     access_token: accessToken,
     token_type: "Bearer",
@@ -102,18 +153,37 @@ async function handleAuthorizationCode(
   });
 }
 
-async function handleRefreshToken(form: URLSearchParams, clientId: string) {
+async function handleRefreshToken(
+  req: NextRequest,
+  form: URLSearchParams,
+  clientId: string,
+  requestId: string,
+) {
   const refresh = form.get("refresh_token");
   if (!refresh) return tokenError("invalid_request", "refresh_token is required");
 
   const rotated = await rotateRefreshToken(refresh);
-  if (!rotated) return tokenError("invalid_grant", "refresh_token is invalid or expired");
+  if (!rotated) {
+    await recordSecurityEvent(req, {
+      eventType: "invalid_grant",
+      clientId,
+      requestId,
+      errorDetail: { reason: "refresh_token_invalid_or_expired" },
+    });
+    return tokenError("invalid_grant", "refresh_token is invalid or expired");
+  }
 
   // refreshはclientに紐付くので、リクエストclientと一致確認したいが、
   // hash前提のため getOAuthClient と異なる方法で client_id整合性を担保する必要あり。
   // rotateRefreshToken内で抽出済のclient_idを返さないので、ここで再取得する。
   const supabaseCheck = await fetchTokenClient(rotated.refreshToken);
   if (!supabaseCheck || supabaseCheck.client_id !== clientId) {
+    await recordSecurityEvent(req, {
+      eventType: "invalid_grant",
+      clientId,
+      requestId,
+      errorDetail: { reason: "refresh_token_client_mismatch" },
+    });
     return tokenError("invalid_grant", "refresh_token client mismatch");
   }
 
@@ -124,6 +194,14 @@ async function handleRefreshToken(form: URLSearchParams, clientId: string) {
         scopes: rotated.scopes as Scope[],
       })
     : null;
+
+  await recordAccess(req, {
+    userId: supabaseCheck.user_id,
+    clientId,
+    endpoint: "token_refresh",
+    scopes: rotated.scopes,
+    requestId,
+  });
 
   return NextResponse.json({
     access_token: rotated.accessToken,
@@ -161,7 +239,7 @@ async function authenticateClient(
   form: URLSearchParams,
 ): Promise<
   | { ok: true; clientId: string; client: OAuthClientRow }
-  | { ok: false; reason: string }
+  | { ok: false; reason: string; eventType: SecurityEventType; clientIdAttempted: string | null }
 > {
   let clientId = form.get("client_id");
   let clientSecret = form.get("client_secret");
@@ -177,21 +255,61 @@ async function authenticateClient(
         clientSecret = decodeURIComponent(decoded.slice(idx + 1));
       }
     } catch {
-      return { ok: false, reason: "Invalid Basic authorization header" };
+      return {
+        ok: false,
+        reason: "Invalid Basic authorization header",
+        eventType: "invalid_client",
+        clientIdAttempted: null,
+      };
     }
   }
 
-  if (!clientId) return { ok: false, reason: "client_id is required" };
+  if (!clientId) {
+    return {
+      ok: false,
+      reason: "client_id is required",
+      eventType: "invalid_client",
+      clientIdAttempted: null,
+    };
+  }
 
   const client = (await getOAuthClient(clientId)) as OAuthClientRow | null;
-  if (!client) return { ok: false, reason: "Unknown client_id" };
+  if (!client) {
+    return {
+      ok: false,
+      reason: "Unknown client_id",
+      eventType: "unknown_client",
+      clientIdAttempted: clientId,
+    };
+  }
 
   if (client.client_type === "confidential") {
-    if (!clientSecret) return { ok: false, reason: "client_secret required for confidential client" };
-    if (!client.client_secret_hash) return { ok: false, reason: "Client secret not configured" };
+    if (!clientSecret) {
+      return {
+        ok: false,
+        reason: "client_secret required for confidential client",
+        eventType: "invalid_client",
+        clientIdAttempted: clientId,
+      };
+    }
+    if (!client.client_secret_hash) {
+      return {
+        ok: false,
+        reason: "Client secret not configured",
+        eventType: "invalid_client",
+        clientIdAttempted: clientId,
+      };
+    }
     // SHA-256比較（client_secretは32バイト以上の高エントロピーランダムなのでbcryptは過剰）
     const sha = hashToken(clientSecret);
-    if (sha !== client.client_secret_hash) return { ok: false, reason: "Invalid client_secret" };
+    if (sha !== client.client_secret_hash) {
+      return {
+        ok: false,
+        reason: "Invalid client_secret",
+        eventType: "invalid_client",
+        clientIdAttempted: clientId,
+      };
+    }
   }
 
   return { ok: true, clientId, client };
