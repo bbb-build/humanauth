@@ -192,7 +192,7 @@ function SigninContent() {
         <Shield className="mx-auto mb-4 h-10 w-10" style={{ color: "#00d4aa" }} />
 
         <p className="mb-2 text-sm" style={{ color: "#7a8392" }}>
-          Sign in with Humanary
+          Login with Humad
         </p>
         <h1 className="mb-6 text-xl font-bold">Verify you are human</h1>
 
@@ -289,7 +289,7 @@ function SigninContent() {
 
         <p className="mt-6 text-xs" style={{ color: "#7a8392" }}>
           Powered by{" "}
-          <span style={{ color: "#a8b0bc" }}>Humanary</span>
+          <span style={{ color: "#a8b0bc" }}>Humad</span>
         </p>
       </div>
     </div>

@@ -1,4 +1,4 @@
-// "Login with Humanary" client SDK (OAuth 2.1 + OIDC, PKCE).
+// "Login with Humad" client SDK (OAuth 2.1 + OIDC, PKCE).
 // Works in both browser and Node 18+ (uses globalThis.crypto).
 
 const DEFAULT_API_URL = "https://humanauth.vercel.app";

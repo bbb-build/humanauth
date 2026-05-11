@@ -1,6 +1,6 @@
 "use client";
 
-import { signIn, getUser, signOut, type TokenSet, type UserInfo } from "humanauth-sdk";
+import { signIn, getUser, signOut, type TokenSet, type UserInfo } from "humad-sdk";
 import { useEffect, useState } from "react";
 
 const STORAGE_KEY = "humanauth_demo_tokens";
@@ -94,7 +94,7 @@ export default function HomePage() {
             gap: 16,
           }}
         >
-          <div style={{ fontWeight: 600, fontSize: 14 }}>Humanary Sample</div>
+          <div style={{ fontWeight: 600, fontSize: 14 }}>Humad Sample</div>
           {tokens ? (
             <nav style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <a href={`${API_URL}/dashboard`} target="_blank" rel="noreferrer" style={headerLinkStyle}>
@@ -119,10 +119,10 @@ export default function HomePage() {
         }}
       >
       <h1 style={{ fontSize: 32, marginBottom: 8 }}>
-        Login with Humanary — Sample
+        Login with Humad — Sample
       </h1>
       <p style={{ color: "#a8b0bc", marginBottom: 32 }}>
-        humanauth-sdk@0.2.x を使った最小サンプル。<code>signIn() → handleCallback() → getUser()</code> の流れを実演します。
+        humad-sdk@0.2.x を使った最小サンプル。<code>signIn() → handleCallback() → getUser()</code> の流れを実演します。
       </p>
 
       {error && (
@@ -154,7 +154,7 @@ export default function HomePage() {
             cursor: "pointer",
           }}
         >
-          Sign in with Humanary
+          Login with Humad
         </button>
       ) : (
         <div>

@@ -38,7 +38,7 @@ export default function LandingNav() {
       <div className="mx-auto flex max-w-6xl items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           <Shield className="h-6 w-6 text-[var(--accent)]" />
-          <span className="text-lg font-bold">HumanAuth</span>
+          <span className="text-lg font-bold">Humad</span>
         </Link>
 
         {signedIn ? (

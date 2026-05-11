@@ -1,20 +1,20 @@
-# HumanAuth
+# Humad
 
 **World ID Authentication Gateway** — Add human verification to any app in 2 lines of code.
 
-Managed RP signing, nullifier deduplication, real-time analytics. Powered by [World ID](https://worldcoin.org/world-id).
+Managed RP signing, nullifier deduplication, real-time analytics, plus **Login with Humad** (OIDC). Powered by [World ID](https://worldcoin.org/world-id).
 
-**Live:** [humanauth.vercel.app](https://humanauth.vercel.app)
-**npm:** [humanauth-sdk](https://www.npmjs.com/package/humanauth-sdk)
+**Live:** [humanauth.vercel.app](https://humanauth.vercel.app) *(domain placeholder — will be migrated to humad.* later)*
+**npm:** [humad-sdk](https://www.npmjs.com/package/humad-sdk)
 
 ## Quick Start
 
 ```bash
-npm install humanauth-sdk @worldcoin/idkit
+npm install humad-sdk @worldcoin/idkit
 ```
 
 ```tsx
-import { HumanAuth } from "humanauth-sdk/react";
+import { HumanAuth } from "humad-sdk/react";
 
 <HumanAuth
   appId="app_your_world_id"
@@ -27,6 +27,8 @@ import { HumanAuth } from "humanauth-sdk/react";
 />
 ```
 
+> Note: the public React component is still exported as `HumanAuth` for v0.2.x compatibility. It will be renamed to `Humad` in v1.0.
+
 ## What it does
 
 | You get | Instead of building |
@@ -36,13 +38,14 @@ import { HumanAuth } from "humanauth-sdk/react";
 | MAU tracking + dashboard | Analytics from scratch |
 | Drop-in React component | IDKit integration + error handling |
 | World ID 4.0 auto-migration | Manual SDK upgrades |
+| Login with Humad (OIDC) | Build your own OAuth/OIDC stack |
 
 ## Architecture
 
 ```
-Your App → HumanAuth API → World ID Cloud API
-                ↓
-           Supabase (nullifiers, logs, MAU)
+Your App → Humad API → World ID Cloud API
+              ↓
+         Supabase (nullifiers, logs, MAU, OIDC sessions)
 ```
 
 ## API
@@ -54,6 +57,7 @@ Your App → HumanAuth API → World ID Cloud API
 | `/api/apps` | GET/POST | Manage apps (JWT auth) |
 | `/api/apps/:id/keys` | GET/POST | Manage API keys |
 | `/api/dashboard/stats` | GET | Dashboard analytics |
+| `/api/oauth/*` | — | OAuth 2.1 / OIDC endpoints (authorize, token, userinfo, revoke, jwks, discovery) |
 
 ## Stack
 
@@ -63,13 +67,9 @@ Your App → HumanAuth API → World ID Cloud API
 - Vercel (deployment + cron)
 - Tailwind CSS v4
 
-## Pricing
+## Positioning
 
-| Plan | MAU | Price |
-|------|-----|-------|
-| Free | 1,000 | $0 |
-| Pro | 10,000 | $49/mo |
-| Business | 100,000 | $199/mo |
+Humad is the **ID layer** of the HUMAD product family. It is not a standalone revenue product — like Facebook Login, it monetizes indirectly through the data it gathers (see HUMAD Ads).
 
 ## Development
 

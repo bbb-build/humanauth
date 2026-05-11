@@ -1,6 +1,6 @@
-# HumanAuth Sample — Login with Humanary
+# Humad Sample — Login with Humad
 
-`humanauth-sdk@0.2.x` を使った最小サンプル (Next.js 15 / App Router)。
+`humad-sdk@0.2.x` を使った最小サンプル (Next.js 15 / App Router)。
 
 `signIn() → handleCallback() → getUser() → signOut()` の OAuth/OIDC フローを
 そのまま実装してあります。E2E 動作検証用。
@@ -12,19 +12,20 @@
 cd examples/sample-nextjs
 npm install
 
-# 2. HumanAuth ダッシュボードで OAuth Client を作成
+# 2. Humad ダッシュボードで OAuth Client を作成
 #    https://humanauth.vercel.app/dashboard/oauth
 #    redirect_uris に http://localhost:3000/oauth/callback を追加
 
 # 3. .env.local を作成
 cp .env.example .env.local
 # 取得した client_id を NEXT_PUBLIC_HUMANAUTH_CLIENT_ID に貼り付ける
+# (環境変数名は v0.2.x 互換のため HUMANAUTH_* のまま。v1.0 で HUMAD_* に整理予定)
 
 # 4. 起動
 npm run dev
 ```
 
-ブラウザで http://localhost:3000 を開き、**Sign in with Humanary** を押下。
+ブラウザで http://localhost:3000 を開き、**Login with Humad** を押下。
 World ID 認証 → consent → callback → ホーム画面に戻り、UserInfo + TokenSet が表示されれば成功。
 
 ## ファイル構成

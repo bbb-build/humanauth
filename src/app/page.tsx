@@ -85,7 +85,7 @@ function onVerified(result) {
             <span className="ml-2 text-xs text-[var(--text-tertiary)]">App.tsx</span>
           </div>
           <pre className="overflow-x-auto p-6 text-sm leading-relaxed">
-            <code>{`import { HumanAuth } from "humanauth-sdk/react";
+            <code>{`import { HumanAuth } from "humad-sdk/react";
 
 <HumanAuth
   appId="your-app-id"
@@ -103,7 +103,7 @@ function onVerified(result) {
         <div className="mx-auto max-w-6xl">
           <h2 className="mb-4 text-center text-3xl font-bold">Everything you need. Nothing you don&apos;t.</h2>
           <p className="mb-16 text-center text-[var(--text-secondary)]">
-            World ID integration takes days. HumanAuth takes 2 minutes.
+            World ID integration takes days. Humad takes 2 minutes.
           </p>
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
             {[
@@ -127,14 +127,14 @@ function onVerified(result) {
       {/* vs SDK */}
       <section className="border-t border-[var(--border-color)] px-6 py-24">
         <div className="mx-auto max-w-4xl">
-          <h2 className="mb-12 text-center text-3xl font-bold">HumanAuth vs. Direct SDK</h2>
+          <h2 className="mb-12 text-center text-3xl font-bold">Humad vs. Direct SDK</h2>
           <div className="overflow-hidden rounded-xl border border-[var(--border-color)]">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--border-color)] bg-[var(--bg-secondary)]">
                   <th className="px-6 py-4 text-left font-medium text-[var(--text-secondary)]" />
                   <th className="px-6 py-4 text-center font-medium text-[var(--text-secondary)]">Direct SDK</th>
-                  <th className="px-6 py-4 text-center font-medium text-[var(--accent)]">HumanAuth</th>
+                  <th className="px-6 py-4 text-center font-medium text-[var(--accent)]">Humad</th>
                 </tr>
               </thead>
               <tbody>
@@ -211,7 +211,7 @@ function onVerified(result) {
         <div className="mx-auto flex max-w-6xl items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-[var(--text-tertiary)]">
             <Shield className="h-4 w-4" />
-            <span>HumanAuth — Proof of Humanity as a Service</span>
+            <span>Humad — Proof of Humanity as a Service</span>
           </div>
           <div className="text-sm text-[var(--text-tertiary)]">
             Powered by <span className="text-[var(--text-secondary)]">World ID</span>

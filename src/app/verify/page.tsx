@@ -300,7 +300,7 @@ function VerifyContent() {
 
         <p className="mt-6 text-xs" style={{ color: isDark ? "#7a8392" : "#999999" }}>
           Powered by{" "}
-          <span style={{ color: isDark ? "#a8b0bc" : "#333333" }}>HumanAuth</span>
+          <span style={{ color: isDark ? "#a8b0bc" : "#333333" }}>Humad</span>
         </p>
       </div>
     </div>
