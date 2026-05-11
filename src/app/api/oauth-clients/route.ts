@@ -3,6 +3,7 @@ import { randomBytes, createHash } from "node:crypto";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getOwnerId, unauthorized } from "@/lib/auth-helpers";
 import { SUPPORTED_SCOPES } from "@/lib/oauth";
+import { logger, errCtx } from "@/lib/logger";
 
 // OAuth Client管理API。既存ダッシュボードJWT認証を流用。
 // JWT.sub = ダッシュボードログイン時のnullifier_hash（action=humanauth-dashboard-login）
@@ -133,8 +134,17 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) {
+    logger.error("oauth-client-create-failed", { ownerHaUserId, ...errCtx(error) });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  logger.info("oauth-client-created", {
+    clientId,
+    clientType: ctype,
+    ownerHaUserId,
+    redirectUriCount: redirect_uris.length,
+    scopes,
+  });
 
   return NextResponse.json({
     client,
