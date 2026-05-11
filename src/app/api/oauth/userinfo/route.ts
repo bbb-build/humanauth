@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAccessToken } from "@/lib/oauth";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { withCors, corsPreflightResponse } from "@/lib/oauth-cors";
 
 // OIDC Userinfo Endpoint
 // GET/POST /api/oauth/userinfo
@@ -15,11 +16,13 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 async function handle(req: NextRequest) {
   const auth = req.headers.get("authorization");
   if (!auth?.startsWith("Bearer ")) {
-    return NextResponse.json({ error: "invalid_token" }, { status: 401 });
+    return withCors(NextResponse.json({ error: "invalid_token" }, { status: 401 }), req);
   }
   const token = auth.slice(7).trim();
   const verified = await verifyAccessToken(token);
-  if (!verified) return NextResponse.json({ error: "invalid_token" }, { status: 401 });
+  if (!verified) {
+    return withCors(NextResponse.json({ error: "invalid_token" }, { status: 401 }), req);
+  }
 
   const supabase = getSupabaseAdmin();
   const { data: user } = await supabase
@@ -28,7 +31,9 @@ async function handle(req: NextRequest) {
     .eq("id", verified.userId)
     .single();
 
-  if (!user) return NextResponse.json({ error: "invalid_token" }, { status: 401 });
+  if (!user) {
+    return withCors(NextResponse.json({ error: "invalid_token" }, { status: 401 }), req);
+  }
 
   const claims: Record<string, unknown> = { sub: user.id };
 
@@ -46,12 +51,12 @@ async function handle(req: NextRequest) {
     claims.email_verified = user.email_verified;
   }
 
-  return NextResponse.json(claims);
+  return withCors(NextResponse.json(claims), req);
 }
 
 export const GET = handle;
 export const POST = handle;
 
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204 });
+export async function OPTIONS(req: NextRequest) {
+  return corsPreflightResponse(req);
 }

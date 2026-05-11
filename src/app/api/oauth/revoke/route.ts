@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hashToken } from "@/lib/oauth";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { withCors, corsPreflightResponse } from "@/lib/oauth-cors";
 
 // RFC 7009 Token Revocation
 // POST /api/oauth/revoke
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
     token = body.token || "";
   }
 
-  if (!token) return NextResponse.json({}, { status: 200 });
+  if (!token) return withCors(NextResponse.json({}, { status: 200 }), req);
 
   const supabase = getSupabaseAdmin();
   await supabase
@@ -27,9 +28,9 @@ export async function POST(req: NextRequest) {
     .eq("token_hash", hashToken(token))
     .is("revoked_at", null);
 
-  return NextResponse.json({}, { status: 200 });
+  return withCors(NextResponse.json({}, { status: 200 }), req);
 }
 
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204 });
+export async function OPTIONS(req: NextRequest) {
+  return corsPreflightResponse(req);
 }

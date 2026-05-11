@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { getIssuer } from "@/lib/oidc-keys";
 import { SUPPORTED_SCOPES } from "@/lib/oauth";
+import { withPublicCors, publicCorsPreflightResponse } from "@/lib/oauth-cors";
 
 export async function GET() {
   const issuer = getIssuer();
 
-  return NextResponse.json({
+  const res = NextResponse.json({
     issuer,
     authorization_endpoint: `${issuer}/api/oauth/authorize`,
     token_endpoint: `${issuer}/api/oauth/token`,
@@ -37,4 +38,9 @@ export async function GET() {
       "verification_level",
     ],
   });
+  return withPublicCors(res);
+}
+
+export async function OPTIONS() {
+  return publicCorsPreflightResponse();
 }
