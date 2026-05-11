@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Shield, Plus, Copy, Check, Trash2, ArrowLeft, Key } from "lucide-react";
+import { Shield, Plus, Copy, Check, Trash2, ArrowLeft, Key, Pencil } from "lucide-react";
 
 interface OAuthClient {
   client_id: string;
@@ -36,6 +36,8 @@ export default function OAuthClientsPage() {
   const [redirectUrisRaw, setRedirectUrisRaw] = useState("");
   const [clientType, setClientType] = useState<"public" | "confidential">("public");
   const [scopes, setScopes] = useState<string[]>(["openid", "profile", "verified_human"]);
+  // 編集対象のclient_id。nullなら新規作成モード。
+  const [editingClientId, setEditingClientId] = useState<string | null>(null);
 
   const authHeader = useCallback((): HeadersInit => {
     const token = typeof window !== "undefined" ? localStorage.getItem("ha_token") : null;
@@ -63,7 +65,28 @@ export default function OAuthClientsPage() {
     fetchClients();
   }, [fetchClients]);
 
-  const onCreate = async () => {
+  const resetForm = () => {
+    setName("");
+    setHomepageUrl("");
+    setRedirectUrisRaw("");
+    setScopes(["openid", "profile", "verified_human"]);
+    setClientType("public");
+    setEditingClientId(null);
+    setShowNew(false);
+  };
+
+  const onEdit = (c: OAuthClient) => {
+    setEditingClientId(c.client_id);
+    setName(c.name);
+    setHomepageUrl(c.homepage_url ?? "");
+    setRedirectUrisRaw(c.redirect_uris.join("\n"));
+    setClientType(c.client_type);
+    setScopes(c.allowed_scopes);
+    setShowNew(true);
+    setError(null);
+  };
+
+  const onSubmit = async () => {
     setError(null);
     setCreating(true);
 
@@ -84,32 +107,34 @@ export default function OAuthClientsPage() {
     }
 
     try {
-      const res = await fetch("/api/oauth-clients", {
-        method: "POST",
+      const isEdit = editingClientId !== null;
+      const url = isEdit ? `/api/oauth-clients/${editingClientId}` : "/api/oauth-clients";
+      const method = isEdit ? "PATCH" : "POST";
+      // 編集時は client_type を送らない（不変）。新規時は含める。
+      const payload: Record<string, unknown> = {
+        name,
+        homepage_url: homepageUrl || (isEdit ? null : undefined),
+        redirect_uris,
+        allowed_scopes: scopes,
+      };
+      if (!isEdit) payload.client_type = clientType;
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json", ...authHeader() },
-        body: JSON.stringify({
-          name,
-          homepage_url: homepageUrl || undefined,
-          redirect_uris,
-          client_type: clientType,
-          allowed_scopes: scopes,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Failed to create client");
+        setError(data.error || (isEdit ? "Failed to update client" : "Failed to create client"));
         setCreating(false);
         return;
       }
 
-      setCreatedResult(data);
-      setShowNew(false);
-      setName("");
-      setHomepageUrl("");
-      setRedirectUrisRaw("");
-      setScopes(["openid", "profile", "verified_human"]);
-      setClientType("public");
+      // 新規作成時のみ secret 表示パネルを出す
+      if (!isEdit) setCreatedResult(data);
+      resetForm();
       fetchClients();
     } catch {
       setError("Network error");
@@ -165,7 +190,10 @@ export default function OAuthClientsPage() {
             </p>
           </div>
           <button
-            onClick={() => setShowNew(true)}
+            onClick={() => {
+              resetForm();
+              setShowNew(true);
+            }}
             className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium"
             style={{ background: "#00d4aa", color: "#0a0a0f" }}
           >
@@ -247,7 +275,9 @@ export default function OAuthClientsPage() {
 
         {showNew && (
           <div className="mb-6 rounded-xl p-6" style={{ border: "1px solid #2f323e", background: "#12141a" }}>
-            <h3 className="mb-4 font-semibold">New OAuth Client</h3>
+            <h3 className="mb-4 font-semibold">
+              {editingClientId ? `Edit Client (${editingClientId})` : "New OAuth Client"}
+            </h3>
             <div className="space-y-4">
               <div>
                 <label className="mb-1 block text-sm" style={{ color: "#a8b0bc" }}>
@@ -288,18 +318,21 @@ export default function OAuthClientsPage() {
               </div>
               <div>
                 <label className="mb-1 block text-sm" style={{ color: "#a8b0bc" }}>
-                  Client type
+                  Client type{editingClientId && " (immutable)"}
                 </label>
                 <div className="flex gap-3">
                   {(["public", "confidential"] as const).map((t) => (
                     <button
                       key={t}
-                      onClick={() => setClientType(t)}
+                      onClick={() => !editingClientId && setClientType(t)}
+                      disabled={editingClientId !== null}
                       className="rounded-lg px-3 py-2 text-xs"
                       style={{
                         border: "1px solid #2f323e",
                         background: clientType === t ? "#00d4aa" : "transparent",
                         color: clientType === t ? "#0a0a0f" : "#a8b0bc",
+                        opacity: editingClientId && clientType !== t ? 0.4 : 1,
+                        cursor: editingClientId ? "not-allowed" : "pointer",
                       }}
                     >
                       {t}
@@ -307,8 +340,9 @@ export default function OAuthClientsPage() {
                   ))}
                 </div>
                 <p className="mt-1 text-xs" style={{ color: "#7a8392" }}>
-                  Choose &quot;public&quot; for SPAs and mobile apps (PKCE only). &quot;confidential&quot; for
-                  server-side apps that can keep a client_secret.
+                  {editingClientId
+                    ? "client_type cannot be changed after creation. Delete and recreate to switch."
+                    : "Choose \"public\" for SPAs and mobile apps (PKCE only). \"confidential\" for server-side apps that can keep a client_secret."}
                 </p>
               </div>
               <div>
@@ -336,15 +370,21 @@ export default function OAuthClientsPage() {
               </div>
               <div className="flex gap-3 pt-2">
                 <button
-                  onClick={onCreate}
+                  onClick={onSubmit}
                   disabled={creating}
                   className="rounded-lg px-4 py-2 text-sm font-medium"
                   style={{ background: "#00d4aa", color: "#0a0a0f" }}
                 >
-                  {creating ? "Creating..." : "Create Client"}
+                  {creating
+                    ? editingClientId
+                      ? "Saving..."
+                      : "Creating..."
+                    : editingClientId
+                      ? "Save Changes"
+                      : "Create Client"}
                 </button>
                 <button
-                  onClick={() => setShowNew(false)}
+                  onClick={resetForm}
                   className="rounded-lg px-4 py-2 text-sm"
                   style={{ border: "1px solid #2f323e", color: "#a8b0bc" }}
                 >
@@ -396,14 +436,24 @@ export default function OAuthClientsPage() {
                       {c.redirect_uris.join(", ")}
                     </div>
                   </div>
-                  <button
-                    onClick={() => onDelete(c.client_id)}
-                    className="rounded-lg p-2"
-                    style={{ border: "1px solid #2f323e", color: "#ef4444" }}
-                    title="Delete"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={() => onEdit(c)}
+                      className="rounded-lg p-2"
+                      style={{ border: "1px solid #2f323e", color: "#a8b0bc" }}
+                      title="Edit"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => onDelete(c.client_id)}
+                      className="rounded-lg p-2"
+                      style={{ border: "1px solid #2f323e", color: "#ef4444" }}
+                      title="Delete"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
