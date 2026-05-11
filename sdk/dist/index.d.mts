@@ -72,13 +72,52 @@ declare function getUserInfo(opts: {
  */
 declare function getUser(tokens: TokenSet, apiUrl?: string): Promise<UserInfo>;
 interface SignOutParams {
-    token: string;
+    /**
+     * Token to revoke. Required when mode is "revoke" (default).
+     * Not required when mode is "navigate".
+     */
+    token?: string;
     tokenTypeHint?: "access_token" | "refresh_token";
     clientId: string;
     clientSecret?: string;
     apiUrl?: string;
+    /**
+     * "revoke" (default): call /api/oauth/revoke to invalidate the token.
+     *   Quiet, server-friendly, no browser navigation.
+     * "navigate": redirect the browser to /api/oauth/end-session for
+     *   OIDC RP-Initiated Logout. Also ends the user's Humad SSO session.
+     *   Requires a browser; throws if window is not available.
+     */
+    mode?: "revoke" | "navigate";
+    /**
+     * OIDC RP-Initiated Logout parameters (used only when mode="navigate").
+     * id_token issued earlier — helps the IdP identify the user / RP.
+     */
+    idTokenHint?: string;
+    /**
+     * Where the IdP should send the browser after logout.
+     * MUST be pre-registered on the client's post_logout_redirect_uris.
+     */
+    postLogoutRedirectUri?: string;
+    /**
+     * Opaque value echoed back as ?state= on post_logout_redirect_uri.
+     */
+    state?: string;
 }
 declare function signOut(params: SignOutParams): Promise<void>;
+interface EndSessionUrlParams {
+    apiUrl?: string;
+    clientId?: string;
+    idTokenHint?: string;
+    postLogoutRedirectUri?: string;
+    state?: string;
+}
+/**
+ * Build the OIDC RP-Initiated Logout URL without performing navigation.
+ * Useful when the caller wants to attach the URL to a link or perform
+ * the redirect via a framework router.
+ */
+declare function buildEndSessionUrl(params: EndSessionUrlParams): string;
 
 interface VerifyParams {
     apiKey: string;
@@ -121,4 +160,4 @@ declare function getRpContext(params: {
     apiUrl?: string;
 }): Promise<RpContextResult>;
 
-export { type CallbackResult, type ExchangeParams, HumanAuthClient, type OAuthClientConfig, type RefreshParams, type RpContextResult, type SignOutParams, type TokenSet, type UserInfo, type VerifyParams, type VerifyResult, exchangeCodeForTokens, generatePkcePair, getRpContext, getUser, getUserInfo, handleCallback, refreshAccessToken, signIn, signOut, verify };
+export { type CallbackResult, type EndSessionUrlParams, type ExchangeParams, HumanAuthClient, type OAuthClientConfig, type RefreshParams, type RpContextResult, type SignOutParams, type TokenSet, type UserInfo, type VerifyParams, type VerifyResult, buildEndSessionUrl, exchangeCodeForTokens, generatePkcePair, getRpContext, getUser, getUserInfo, handleCallback, refreshAccessToken, signIn, signOut, verify };
