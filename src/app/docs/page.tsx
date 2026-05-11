@@ -104,11 +104,17 @@ function VerifyButton() {
             Go to <Link href="/dashboard/oauth" className="text-[var(--accent)] hover:underline">/dashboard/oauth</Link> and create a client.
             You&apos;ll need at minimum a name and one <code>redirect_uri</code>. For SPAs, also set <code>post_logout_redirect_uris</code>.
           </p>
-          <ul className="mb-6 ml-5 list-disc space-y-1 text-sm text-[var(--text-secondary)]">
+          <ul className="mb-4 ml-5 list-disc space-y-1 text-sm text-[var(--text-secondary)]">
             <li><strong>Public client (SPA / mobile):</strong> no <code>client_secret</code>; PKCE is enforced.</li>
             <li><strong>Confidential client (server-side):</strong> store <code>client_secret</code> in your backend; PKCE still recommended.</li>
             <li><strong>Scopes:</strong> <code>openid</code> (required), <code>profile</code>, <code>verified_human</code>, <code>email</code>, <code>offline_access</code> (for refresh tokens).</li>
           </ul>
+          <p className="mb-6 text-xs text-[var(--text-tertiary)]">
+            You can later <strong>edit</strong> a client&apos;s name / homepage / redirect_uris / scopes from the dashboard
+            (the <code>client_id</code> and <code>client_type</code> stay frozen). Confidential clients also expose a
+            <strong> Rotate secret </strong> button — handy when a secret leaks; the old secret stops working immediately,
+            so coordinate with your RP deploy.
+          </p>
 
           <h3 className="mb-3 text-lg font-semibold">2. Browser flow</h3>
           <pre className="mb-6 overflow-x-auto rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-4 text-sm leading-relaxed">
@@ -407,6 +413,26 @@ await signOut({
                 <li><code>refresh_token</code>: 30 days, rotated on every use</li>
                 <li>authorization code: 60 seconds, one-time use</li>
               </ul>
+            </div>
+            <div>
+              <h3 className="mb-2 text-lg font-semibold">Health check</h3>
+              <p className="mb-2 text-sm text-[var(--text-secondary)]">
+                <code>GET /api/health</code> returns 200 with a JSON body when the IdP is healthy
+                (DB reachable, OIDC signing key loaded), 503 otherwise. Suitable for UptimeRobot / Vercel Cron / your own monitor.
+              </p>
+              <pre className="overflow-x-auto rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-4 text-xs leading-relaxed">
+                <code>{`{
+  "ok": true,
+  "service": "humanauth",
+  "env": "production",
+  "sha": "ab12cdef",
+  "durationMs": 42,
+  "checks": {
+    "db":   { "ok": true, "durationMs": 38 },
+    "jwks": { "ok": true, "durationMs": 4  }
+  }
+}`}</code>
+              </pre>
             </div>
             <div>
               <h3 className="mb-2 text-lg font-semibold">Status</h3>
