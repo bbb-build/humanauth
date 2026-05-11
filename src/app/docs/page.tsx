@@ -435,6 +435,22 @@ await signOut({
               </pre>
             </div>
             <div>
+              <h3 className="mb-2 text-lg font-semibold">Rate limits</h3>
+              <p className="mb-2 text-sm text-[var(--text-secondary)]">
+                Humad enforces per-client (per <code>client_id</code>) rate limits in addition to per-IP limits on
+                login flows. The per-client buckets exist so a single misbehaving RP cannot saturate the IdP for everyone.
+                Limits are sliding 1-minute windows; the <code>429</code> response includes <code>Retry-After</code>,
+                <code> X-RateLimit-Limit</code>, and <code>X-RateLimit-Remaining: 0</code>.
+              </p>
+              <ul className="ml-5 list-disc text-sm text-[var(--text-secondary)]">
+                <li><code>POST /api/oauth/token</code> — <strong>300 req/min per client</strong> (authorization_code + refresh_token combined; counted after client auth succeeds)</li>
+                <li><code>GET/POST /api/oauth/userinfo</code> — <strong>600 req/min per client</strong> (counted after the access token is verified)</li>
+              </ul>
+              <p className="mt-2 text-xs text-[var(--text-tertiary)]">
+                Normal RPs are not affected: 300/min sustains 5 req/sec of token activity, and 600/min sustains 10 req/sec of userinfo. If your RP legitimately needs more, contact the operator to raise its bucket.
+              </p>
+            </div>
+            <div>
               <h3 className="mb-2 text-lg font-semibold">Status</h3>
               <p className="text-sm text-[var(--text-secondary)]">
                 Beta. Issuer is <code>humanauth.vercel.app</code> until the <code>humad.*</code> domain is assigned.

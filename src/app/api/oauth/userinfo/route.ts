@@ -3,6 +3,7 @@ import { verifyAccessToken } from "@/lib/oauth";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { withCors, corsPreflightResponse } from "@/lib/oauth-cors";
 import { logger, errCtx } from "@/lib/logger";
+import { rateLimitClient } from "@/lib/rate-limit";
 
 // OIDC Userinfo Endpoint
 // GET/POST /api/oauth/userinfo
@@ -23,6 +24,14 @@ async function handle(req: NextRequest) {
   const verified = await verifyAccessToken(token);
   if (!verified) {
     return withCors(NextResponse.json({ error: "invalid_token" }, { status: 401 }), req);
+  }
+
+  // per-client レートリミット — トークン検証成功後にカウント
+  // userinfoはSPAのページ遷移ごとに叩かれうるためtokenよりは緩め
+  const limited = await rateLimitClient(verified.clientId, "userinfo");
+  if (limited) {
+    logger.warn("userinfo-rate-limit-exceeded", { clientId: verified.clientId });
+    return withCors(limited, req);
   }
 
   let user;

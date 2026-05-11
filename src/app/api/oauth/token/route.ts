@@ -13,6 +13,7 @@ import { signIdToken } from "@/lib/oidc-id-token";
 import { hashToken } from "@/lib/oauth";
 import { withCors, corsPreflightResponse } from "@/lib/oauth-cors";
 import { logger, errCtx } from "@/lib/logger";
+import { rateLimitClient } from "@/lib/rate-limit";
 
 // OAuth Token Endpoint
 // POST /api/oauth/token
@@ -29,6 +30,14 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) {
     logger.warn("token-client-auth-failed", { reason: auth.reason, grantType });
     return withCors(tokenError("invalid_client", auth.reason, 401), req);
+  }
+
+  // per-client レートリミット（authorization_code と refresh_token の合算）
+  // 認証成功後にカウントする — 失敗リクエストで正規RPの枠を消費させないため
+  const limited = await rateLimitClient(auth.clientId, "token");
+  if (limited) {
+    logger.warn("token-rate-limit-exceeded", { clientId: auth.clientId, grantType });
+    return withCors(limited, req);
   }
 
   let res: NextResponse;
