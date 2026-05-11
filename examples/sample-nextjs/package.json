@@ -1,8 +1,8 @@
 {
-  "name": "humanauth-sample-nextjs",
+  "name": "humad-sample-nextjs",
   "version": "0.1.0",
   "private": true,
-  "description": "Sample Next.js app demonstrating Login with Humanary (OAuth/OIDC) using humanauth-sdk",
+  "description": "Sample Next.js app demonstrating Login with Humad (OAuth/OIDC) using humad-sdk",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "humanauth-sdk": "^0.2.0",
+    "humad-sdk": "^0.2.0",
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

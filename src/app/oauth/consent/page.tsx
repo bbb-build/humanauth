@@ -14,7 +14,7 @@ interface PageProps {
 }
 
 const SCOPE_DESCRIPTIONS: Record<string, string> = {
-  openid: "Sign you in with Humanary",
+  openid: "Sign you in with Humad",
   profile: "View your handle and display name",
   verified_human: "Confirm you are a verified human (no personal data)",
   email: "View your email address (only if you have one set)",

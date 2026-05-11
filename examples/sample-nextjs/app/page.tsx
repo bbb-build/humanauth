@@ -1,6 +1,6 @@
 "use client";
 
-import { signIn, getUser, signOut, type TokenSet, type UserInfo } from "humanauth-sdk";
+import { signIn, getUser, signOut, type TokenSet, type UserInfo } from "humad-sdk";
 import { useEffect, useState } from "react";
 
 const STORAGE_KEY = "humanauth_demo_tokens";
@@ -77,18 +77,52 @@ export default function HomePage() {
   }
 
   return (
-    <main
-      style={{
-        maxWidth: 720,
-        margin: "0 auto",
-        padding: "64px 24px",
-      }}
-    >
+    <>
+      <header
+        style={{
+          borderBottom: "1px solid #2f323e",
+          padding: "16px 24px",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 720,
+            margin: "0 auto",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 16,
+          }}
+        >
+          <div style={{ fontWeight: 600, fontSize: 14 }}>Humad Sample</div>
+          {tokens ? (
+            <nav style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <a href={`${API_URL}/dashboard`} target="_blank" rel="noreferrer" style={headerLinkStyle}>
+                Dashboard
+              </a>
+              <a href={`${API_URL}/account`} target="_blank" rel="noreferrer" style={headerLinkStyle}>
+                Account
+              </a>
+              <button onClick={handleSignOut} disabled={loading} style={headerSignOutStyle}>
+                Sign out
+              </button>
+            </nav>
+          ) : null}
+        </div>
+      </header>
+
+      <main
+        style={{
+          maxWidth: 720,
+          margin: "0 auto",
+          padding: "64px 24px",
+        }}
+      >
       <h1 style={{ fontSize: 32, marginBottom: 8 }}>
-        Login with Humanary — Sample
+        Login with Humad — Sample
       </h1>
       <p style={{ color: "#a8b0bc", marginBottom: 32 }}>
-        humanauth-sdk@0.2.x を使った最小サンプル。<code>signIn() → handleCallback() → getUser()</code> の流れを実演します。
+        humad-sdk@0.2.x を使った最小サンプル。<code>signIn() → handleCallback() → getUser()</code> の流れを実演します。
       </p>
 
       {error && (
@@ -120,7 +154,7 @@ export default function HomePage() {
             cursor: "pointer",
           }}
         >
-          Sign in with Humanary
+          Login with Humad
         </button>
       ) : (
         <div>
@@ -153,22 +187,6 @@ export default function HomePage() {
             </pre>
           </Section>
 
-          <button
-            onClick={handleSignOut}
-            disabled={loading}
-            style={{
-              background: "transparent",
-              color: "#ef4444",
-              border: "1px solid #ef4444",
-              borderRadius: 8,
-              padding: "10px 18px",
-              fontSize: 14,
-              cursor: "pointer",
-              marginTop: 8,
-            }}
-          >
-            Sign out (revoke token)
-          </button>
         </div>
       )}
 
@@ -190,9 +208,31 @@ export default function HomePage() {
           )}
         </pre>
       </details>
-    </main>
+      </main>
+    </>
   );
 }
+
+const headerLinkStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "6px 12px",
+  fontSize: 13,
+  color: "#a8b0bc",
+  border: "1px solid #2f323e",
+  borderRadius: 6,
+  textDecoration: "none",
+};
+
+const headerSignOutStyle: React.CSSProperties = {
+  padding: "6px 12px",
+  fontSize: 13,
+  color: "#a8b0bc",
+  background: "transparent",
+  border: "1px solid #2f323e",
+  borderRadius: 6,
+  cursor: "pointer",
+};
 
 function Section({
   title,

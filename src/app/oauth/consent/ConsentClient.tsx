@@ -111,7 +111,7 @@ export default function ConsentClient(props: Props) {
         </div>
 
         <p className="mt-6 text-center text-xs" style={{ color: "#7a8392" }}>
-          You can revoke access anytime from your Humanary settings.
+          You can revoke access anytime from your Humad settings.
         </p>
       </div>
     </div>

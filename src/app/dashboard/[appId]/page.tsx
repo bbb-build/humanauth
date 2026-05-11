@@ -167,7 +167,7 @@ export default function AppDetailPage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <Shield className="h-6 w-6 text-[var(--accent)]" />
-            <span className="text-lg font-bold">HumanAuth</span>
+            <span className="text-lg font-bold">Humad</span>
           </Link>
         </div>
       </nav>
@@ -241,9 +241,9 @@ export default function AppDetailPage() {
 </div>
 
 // Server-side SDK (API key must never be exposed in browser)
-import { HumanAuthClient } from "humanauth-sdk";
+import { HumanAuthClient } from "humad-sdk";
 const client = new HumanAuthClient({
-  apiKey: process.env.HUMANAUTH_API_KEY,
+  apiKey: process.env.HUMAD_API_KEY,
 });
 const result = await client.verify({ proof, merkle_root, nullifier_hash });`}</code>
               </pre>

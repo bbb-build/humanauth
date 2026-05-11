@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
-  title: "HumanAuth Sample — Login with Humanary",
-  description: "Demonstrates the Login with Humanary OAuth/OIDC flow",
+  title: "Humad Sample — Login with Humad",
+  description: "Demonstrates the Login with Humad OAuth/OIDC flow",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

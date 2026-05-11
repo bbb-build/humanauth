@@ -1,7 +1,7 @@
 {
-  "name": "humanauth-sdk",
+  "name": "humad-sdk",
   "version": "0.2.0",
-  "description": "HumanAuth SDK — World ID verification + Login with Humanary (OAuth/OIDC)",
+  "description": "Humad SDK — World ID verification + Login with Humad (OAuth/OIDC). Successor to humanauth-sdk.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -28,9 +28,12 @@
   "keywords": [
     "world-id",
     "authentication",
+    "humad",
     "humanauth",
     "proof-of-humanity",
-    "world-chain"
+    "world-chain",
+    "oidc",
+    "oauth"
   ],
   "author": "BBB&Company",
   "license": "MIT",

@@ -1,17 +1,19 @@
-# humanauth-sdk
+# humad-sdk
 
-World ID authentication gateway SDK. Add human verification to any app in 2 lines of code, plus a universal "Sign in with Humanary" identity layer (OAuth 2.1 / OIDC).
+World ID authentication gateway SDK. Add human verification to any app in 2 lines of code, plus a universal **Login with Humad** identity layer (OAuth 2.1 / OIDC).
+
+> **Renamed from `humanauth-sdk`.** v0.2.0 is the first release under the new name. The old package (`humanauth-sdk`) is deprecated — please switch.
 
 ## Install
 
 ```bash
-npm install humanauth-sdk @worldcoin/idkit
+npm install humad-sdk @worldcoin/idkit
 ```
 
 ## React — Drop-in Component
 
 ```tsx
-import { HumanAuth } from "humanauth-sdk/react";
+import { HumanAuth } from "humad-sdk/react";
 
 function App() {
   return (
@@ -32,10 +34,12 @@ function App() {
 
 The component handles the full flow: fetch RP context → open World ID widget → verify proof → return result.
 
+> Note: the public React component is still exported as `HumanAuth` (class names: `HumanAuthClient`, `verifyWithHumanAuth`, etc.) for v0.2.x backwards compatibility with `humanauth-sdk`. These will be renamed to `Humad` / `HumadClient` / `verifyWithHumad` in v1.0.
+
 ## Server-side — API Client
 
 ```typescript
-import { HumanAuthClient } from "humanauth-sdk";
+import { HumanAuthClient } from "humad-sdk";
 
 const client = new HumanAuthClient({ apiKey: "ha_your_key" });
 
@@ -51,16 +55,16 @@ const result = await client.verify({
 const { rp_context } = await client.getRpContext("login");
 ```
 
-## Login with Humanary (OAuth 2.1 + OIDC)
+## Login with Humad (OAuth 2.1 + OIDC)
 
-A universal "Sign in with Humanary" identity layer built on World ID. Users sign in once with World ID and your app gets their Humanary handle, verified-human status, and a stable user_id — without you running an auth server.
+A universal **Login with Humad** identity layer built on World ID. Users sign in once with World ID and your app gets their Humad handle, verified-human status, and a stable user_id — without you running an auth server.
 
 ### Browser flow
 
 ```typescript
-import { signIn, handleCallback, getUser, signOut } from "humanauth-sdk";
+import { signIn, handleCallback, getUser, signOut } from "humad-sdk";
 
-// 1. On a "Sign in" button:
+// 1. On a "Login with Humad" button:
 await signIn({
   clientId: "ha_oauth_xxxxxxxx",
   redirectUri: "https://yourapp.com/oauth/callback",
@@ -79,12 +83,12 @@ await signOut({ token: tokens.refreshToken!, tokenTypeHint: "refresh_token", cli
 ### Server flow (confidential client)
 
 ```typescript
-import { exchangeCodeForTokens, getUserInfo } from "humanauth-sdk";
+import { exchangeCodeForTokens, getUserInfo } from "humad-sdk";
 
 // In your /oauth/callback route handler:
 const tokens = await exchangeCodeForTokens({
-  clientId: process.env.HUMANARY_CLIENT_ID!,
-  clientSecret: process.env.HUMANARY_CLIENT_SECRET!,
+  clientId: process.env.HUMAD_CLIENT_ID!,
+  clientSecret: process.env.HUMAD_CLIENT_SECRET!,
   code,
   codeVerifier,
   redirectUri,
@@ -97,21 +101,33 @@ Register your OAuth client at [the dashboard](https://humanauth.vercel.app/dashb
 
 OIDC discovery: `https://humanauth.vercel.app/.well-known/openid-configuration`.
 
-## What HumanAuth handles for you
+> The IdP currently lives at `humanauth.vercel.app` as a placeholder domain. A `humad.*` custom domain will be assigned later — the SDK reads the issuer URL from the OIDC discovery document, so no breaking change is expected.
 
-| Concern | Without HumanAuth | With HumanAuth |
-|---------|-------------------|----------------|
+## What Humad handles for you
+
+| Concern | Without Humad | With Humad |
+|---------|---------------|------------|
 | RP key management | Build KMS integration | Managed (AES-256-GCM at rest) |
 | Nullifier storage | Build + maintain DB | Automatic dedup |
 | MAU tracking | Build analytics | Dashboard included |
 | SDK upgrades | Manual migration | Automatic |
 | World ID 4.0 signing | Implement RP signing | One API call |
+| OAuth/OIDC server | Run your own | Hosted Login with Humad |
 
 ## Links
 
 - [Dashboard](https://humanauth.vercel.app/dashboard) — Manage apps & API keys
 - [Docs](https://humanauth.vercel.app/docs) — API reference & guides
 - [GitHub](https://github.com/bbb-build/humanauth) — Source code
+
+## Migration from `humanauth-sdk`
+
+```bash
+npm uninstall humanauth-sdk
+npm install humad-sdk
+```
+
+The public API is unchanged in v0.2.0 — only the package name moved. Find-and-replace `from "humanauth-sdk"` → `from "humad-sdk"` and you're done.
 
 ## License
 

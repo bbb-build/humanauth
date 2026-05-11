@@ -151,7 +151,7 @@ export default function OAuthClientsPage() {
           </Link>
           <div className="flex items-center gap-2">
             <Shield className="h-5 w-5" style={{ color: "#00d4aa" }} />
-            <span className="font-semibold">Login with Humanary</span>
+            <span className="font-semibold">Login with Humad</span>
           </div>
         </div>
       </nav>
@@ -161,7 +161,7 @@ export default function OAuthClientsPage() {
           <div>
             <h1 className="text-2xl font-bold">OAuth Clients</h1>
             <p className="mt-1 text-sm" style={{ color: "#a8b0bc" }}>
-              Register apps that integrate &quot;Sign in with Humanary&quot;.
+              Register apps that integrate &quot;Login with Humad&quot;.
             </p>
           </div>
           <button

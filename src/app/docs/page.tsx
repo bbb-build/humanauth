@@ -8,7 +8,7 @@ export default function DocsPage() {
         <div className="mx-auto flex max-w-4xl items-center gap-2">
           <Link href="/" className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-[var(--accent)]" />
-            <span className="font-bold">HumanAuth</span>
+            <span className="font-bold">Humad</span>
           </Link>
           <span className="text-[var(--text-tertiary)]">/</span>
           <span className="text-[var(--text-secondary)]">Docs</span>
@@ -47,10 +47,10 @@ export default function DocsPage() {
             <div>
               <h3 className="mb-3 text-lg font-semibold">2b. React SDK</h3>
               <pre className="mb-2 overflow-x-auto rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-4 text-sm">
-                <code>npm install humanauth-sdk @worldcoin/idkit</code>
+                <code>npm install humad-sdk @worldcoin/idkit</code>
               </pre>
               <pre className="overflow-x-auto rounded-xl border border-[var(--border-color)] bg-[var(--bg-secondary)] p-4 text-sm leading-relaxed">
-                <code>{`import { HumanAuth } from "humanauth-sdk/react";
+                <code>{`import { HumanAuth } from "humad-sdk/react";
 
 function LoginButton() {
   return (
@@ -68,7 +68,7 @@ function LoginButton() {
               </pre>
               <p className="mt-2 text-xs text-[var(--text-tertiary)]">
                 The React component uses widget flow (Origin-based auth). No API key needed on the client.
-                For server-side verification, use <code className="text-[var(--accent)]">verifyWithHumanAuth()</code> with your API key.
+                For server-side verification, use <code className="text-[var(--accent)]">verifyWithHumanAuth()</code> with your API key (renamed to <code>verifyWithHumad()</code> in v1.0).
               </p>
             </div>
           </div>
@@ -171,7 +171,7 @@ function LoginButton() {
               <h3 className="mb-2 text-lg font-semibold">Nullifier Hash</h3>
               <p className="text-sm text-[var(--text-secondary)]">
                 A unique, anonymous identifier for each World ID user per action. The same person verifying
-                &quot;login&quot; and &quot;vote&quot; produces different nullifiers — privacy by design. HumanAuth
+                &quot;login&quot; and &quot;vote&quot; produces different nullifiers — privacy by design. Humad
                 stores and deduplicates these automatically.
               </p>
             </div>
@@ -179,7 +179,7 @@ function LoginButton() {
               <h3 className="mb-2 text-lg font-semibold">RP Signing (World ID 4.0)</h3>
               <p className="text-sm text-[var(--text-secondary)]">
                 World ID 4.0 requires all verification requests to be signed by the Relying Party.
-                HumanAuth manages your signing keys (encrypted at rest with AES-256-GCM) and generates
+                Humad manages your signing keys (encrypted at rest with AES-256-GCM) and generates
                 signed RP contexts on demand.
               </p>
             </div>

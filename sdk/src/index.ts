@@ -1,7 +1,7 @@
 // WARNING: API key must only be used server-side. Never expose it in client/browser code.
 const DEFAULT_API_URL = "https://humanauth.vercel.app";
 
-// "Login with Humanary" (OAuth 2.1 + OIDC) re-exports
+// "Login with Humad" (OAuth 2.1 + OIDC) re-exports
 export * from "./oauth";
 
 export interface VerifyParams {

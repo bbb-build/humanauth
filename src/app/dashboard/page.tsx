@@ -64,7 +64,7 @@ function LoginPanel() {
     <div className="flex min-h-screen items-center justify-center">
       <div className="max-w-md text-center">
         <Shield className="mx-auto mb-6 h-12 w-12 text-[var(--accent)]" />
-        <h1 className="mb-4 text-2xl font-bold">HumanAuth Dashboard</h1>
+        <h1 className="mb-4 text-2xl font-bold">Humad Dashboard</h1>
         <p className="mb-8 text-[var(--text-secondary)]">
           Verify your humanity to access the dashboard.
         </p>
@@ -194,7 +194,7 @@ export default function DashboardPage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <Shield className="h-6 w-6 text-[var(--accent)]" />
-            <span className="text-lg font-bold">HumanAuth</span>
+            <span className="text-lg font-bold">Humad</span>
           </Link>
           <div className="flex items-center gap-2 sm:gap-3">
             <span className="hidden text-sm text-[var(--text-tertiary)] md:inline">Dashboard</span>

@@ -1,6 +1,6 @@
 "use client";
 
-import { handleCallback } from "humanauth-sdk";
+import { handleCallback } from "humad-sdk";
 import { useEffect, useState } from "react";
 
 const STORAGE_KEY = "humanauth_demo_tokens";
