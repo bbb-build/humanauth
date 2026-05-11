@@ -71,6 +71,86 @@ declare function getUserInfo(opts: {
  * Convenience getter — same as getUserInfo() but accepts a TokenSet.
  */
 declare function getUser(tokens: TokenSet, apiUrl?: string): Promise<UserInfo>;
+interface AutoRefreshController {
+    /** Stop the auto-refresh timer. Safe to call multiple times. */
+    stop(): void;
+}
+interface AutoRefreshParams {
+    clientId: string;
+    initialTokens: TokenSet;
+    onUpdate: (next: TokenSet) => void;
+    onError?: (err: Error) => void;
+    /**
+     * Seconds before expiry to trigger refresh. Default: 60.
+     * Must be < initialTokens.expiresIn or the first refresh fires immediately.
+     */
+    refreshLeewaySec?: number;
+    clientSecret?: string;
+    apiUrl?: string;
+}
+/**
+ * Start a timer that calls refreshAccessToken() shortly before each access
+ * token expires. Reschedules itself after every successful refresh.
+ *
+ * Requires `initialTokens.refreshToken`. Throws synchronously if absent.
+ *
+ * The caller is responsible for persisting the updated TokenSet via onUpdate,
+ * and for calling controller.stop() when the session ends (sign-out, route
+ * unmount, etc).
+ *
+ * Example:
+ *   const ctrl = startAutoRefresh({
+ *     clientId,
+ *     initialTokens: tokens,
+ *     onUpdate: (next) => setTokens(next),
+ *     onError: (err) => console.warn("refresh failed", err),
+ *   });
+ *   // later
+ *   ctrl.stop();
+ */
+declare function startAutoRefresh(params: AutoRefreshParams): AutoRefreshController;
+interface SilentRenewParams {
+    clientId: string;
+    /**
+     * URL to load inside the silent iframe. This page MUST call
+     * handleSilentCallback() to relay the result back to the parent window.
+     * Often the same as the regular signIn redirectUri (the page can detect
+     * iframe context via window.parent !== window).
+     */
+    redirectUri: string;
+    scopes?: string[];
+    apiUrl?: string;
+    /** Max wait in ms before rejecting. Default: 10000. */
+    timeoutMs?: number;
+}
+/**
+ * Silent renewal flow:
+ *   1. Create a hidden <iframe> pointing at /api/oauth/authorize with prompt=none
+ *   2. The IdP either redirects to redirectUri with ?code=&state= (SSO active)
+ *      or returns ?error=login_required (SSO expired)
+ *   3. The page at redirectUri calls handleSilentCallback() which postMessages
+ *      the TokenSet (or error) back to the parent
+ *   4. We resolve / reject with that result and remove the iframe
+ *
+ * Requires the user to be signed in to the Humad SSO session (cookie).
+ * If not, rejects with "login_required" — the caller should fall back to
+ * the interactive signIn() flow.
+ */
+declare function silentRenew(params: SilentRenewParams): Promise<CallbackResult>;
+/**
+ * Call this from the redirect page when it detects it's loaded inside a
+ * silent renew iframe (e.g. window.parent !== window).
+ * Exchanges the code for tokens and postMessages the result to the parent.
+ *
+ * The parent's silentRenew() promise resolves with this result.
+ *
+ * Returns true if this was a silent callback (handled), false otherwise
+ * (the page should run its normal handleCallback() logic).
+ */
+declare function handleSilentCallback(opts: {
+    clientId: string;
+    apiUrl?: string;
+}): Promise<boolean>;
 interface SignOutParams {
     /**
      * Token to revoke. Required when mode is "revoke" (default).
@@ -160,4 +240,4 @@ declare function getRpContext(params: {
     apiUrl?: string;
 }): Promise<RpContextResult>;
 
-export { type CallbackResult, type EndSessionUrlParams, type ExchangeParams, HumanAuthClient, type OAuthClientConfig, type RefreshParams, type RpContextResult, type SignOutParams, type TokenSet, type UserInfo, type VerifyParams, type VerifyResult, buildEndSessionUrl, exchangeCodeForTokens, generatePkcePair, getRpContext, getUser, getUserInfo, handleCallback, refreshAccessToken, signIn, signOut, verify };
+export { type AutoRefreshController, type AutoRefreshParams, type CallbackResult, type EndSessionUrlParams, type ExchangeParams, HumanAuthClient, type OAuthClientConfig, type RefreshParams, type RpContextResult, type SignOutParams, type SilentRenewParams, type TokenSet, type UserInfo, type VerifyParams, type VerifyResult, buildEndSessionUrl, exchangeCodeForTokens, generatePkcePair, getRpContext, getUser, getUserInfo, handleCallback, handleSilentCallback, refreshAccessToken, signIn, signOut, silentRenew, startAutoRefresh, verify };

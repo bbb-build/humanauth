@@ -1,6 +1,6 @@
 {
   "name": "humad-sdk",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Humad SDK — World ID verification + Login with Humad (OAuth/OIDC). Successor to humanauth-sdk.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

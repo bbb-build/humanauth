@@ -270,6 +270,281 @@ export async function getUser(tokens: TokenSet, apiUrl?: string): Promise<UserIn
   return getUserInfo({ accessToken: tokens.accessToken, apiUrl });
 }
 
+// ============================================================
+// Silent refresh — keep access tokens fresh without user interaction
+// ============================================================
+
+export interface AutoRefreshController {
+  /** Stop the auto-refresh timer. Safe to call multiple times. */
+  stop(): void;
+}
+
+export interface AutoRefreshParams {
+  clientId: string;
+  initialTokens: TokenSet;
+  onUpdate: (next: TokenSet) => void;
+  onError?: (err: Error) => void;
+  /**
+   * Seconds before expiry to trigger refresh. Default: 60.
+   * Must be < initialTokens.expiresIn or the first refresh fires immediately.
+   */
+  refreshLeewaySec?: number;
+  clientSecret?: string;
+  apiUrl?: string;
+}
+
+/**
+ * Start a timer that calls refreshAccessToken() shortly before each access
+ * token expires. Reschedules itself after every successful refresh.
+ *
+ * Requires `initialTokens.refreshToken`. Throws synchronously if absent.
+ *
+ * The caller is responsible for persisting the updated TokenSet via onUpdate,
+ * and for calling controller.stop() when the session ends (sign-out, route
+ * unmount, etc).
+ *
+ * Example:
+ *   const ctrl = startAutoRefresh({
+ *     clientId,
+ *     initialTokens: tokens,
+ *     onUpdate: (next) => setTokens(next),
+ *     onError: (err) => console.warn("refresh failed", err),
+ *   });
+ *   // later
+ *   ctrl.stop();
+ */
+export function startAutoRefresh(params: AutoRefreshParams): AutoRefreshController {
+  if (!params.initialTokens.refreshToken) {
+    throw new Error("startAutoRefresh requires a refresh_token on initialTokens");
+  }
+
+  const leeway = Math.max(1, params.refreshLeewaySec ?? 60);
+  let stopped = false;
+  let timerId: ReturnType<typeof setTimeout> | null = null;
+  let currentRefreshToken = params.initialTokens.refreshToken;
+  let nextDelaySec = Math.max(1, params.initialTokens.expiresIn - leeway);
+
+  const tick = async () => {
+    if (stopped) return;
+    try {
+      const next = await refreshAccessToken({
+        clientId: params.clientId,
+        refreshToken: currentRefreshToken,
+        clientSecret: params.clientSecret,
+        apiUrl: params.apiUrl,
+      });
+      if (stopped) return;
+      // refresh tokenはローテーションされる前提（rotateRefreshToken）。
+      // 新しいrefresh_tokenが返ってきたらそれを使い続ける
+      if (next.refreshToken) currentRefreshToken = next.refreshToken;
+      nextDelaySec = Math.max(1, next.expiresIn - leeway);
+      params.onUpdate(next);
+      schedule();
+    } catch (err) {
+      if (stopped) return;
+      params.onError?.(err instanceof Error ? err : new Error(String(err)));
+      // 失敗時はタイマーを止める。RP側でonErrorを受けて再ログインに誘導する想定
+    }
+  };
+
+  const schedule = () => {
+    if (stopped) return;
+    timerId = setTimeout(tick, nextDelaySec * 1000);
+  };
+
+  schedule();
+
+  return {
+    stop() {
+      stopped = true;
+      if (timerId) {
+        clearTimeout(timerId);
+        timerId = null;
+      }
+    },
+  };
+}
+
+// ============================================================
+// Silent renew via hidden iframe + prompt=none
+// ============================================================
+
+const SILENT_RENEW_MESSAGE_TYPE = "humad:silent-renew" as const;
+
+interface SilentRenewMessage {
+  type: typeof SILENT_RENEW_MESSAGE_TYPE;
+  ok: boolean;
+  tokens?: TokenSet;
+  scopes?: string[];
+  error?: string;
+  state: string;
+}
+
+export interface SilentRenewParams {
+  clientId: string;
+  /**
+   * URL to load inside the silent iframe. This page MUST call
+   * handleSilentCallback() to relay the result back to the parent window.
+   * Often the same as the regular signIn redirectUri (the page can detect
+   * iframe context via window.parent !== window).
+   */
+  redirectUri: string;
+  scopes?: string[];
+  apiUrl?: string;
+  /** Max wait in ms before rejecting. Default: 10000. */
+  timeoutMs?: number;
+}
+
+/**
+ * Silent renewal flow:
+ *   1. Create a hidden <iframe> pointing at /api/oauth/authorize with prompt=none
+ *   2. The IdP either redirects to redirectUri with ?code=&state= (SSO active)
+ *      or returns ?error=login_required (SSO expired)
+ *   3. The page at redirectUri calls handleSilentCallback() which postMessages
+ *      the TokenSet (or error) back to the parent
+ *   4. We resolve / reject with that result and remove the iframe
+ *
+ * Requires the user to be signed in to the Humad SSO session (cookie).
+ * If not, rejects with "login_required" — the caller should fall back to
+ * the interactive signIn() flow.
+ */
+export async function silentRenew(params: SilentRenewParams): Promise<CallbackResult> {
+  if (typeof window === "undefined") {
+    throw new Error("silentRenew() must run in a browser");
+  }
+
+  const apiUrl = params.apiUrl || DEFAULT_API_URL;
+  const scopes = params.scopes || ["openid", "profile", "verified_human"];
+  const { verifier, challenge } = await generatePkcePair();
+  const state = generateState();
+
+  const pending: PendingAuth = {
+    verifier,
+    state,
+    redirectUri: params.redirectUri,
+    scopes,
+  };
+  storage().setItem(STORAGE_PREFIX + state, JSON.stringify(pending));
+
+  const url = new URL(`${apiUrl}/api/oauth/authorize`);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set("client_id", params.clientId);
+  url.searchParams.set("redirect_uri", params.redirectUri);
+  url.searchParams.set("scope", scopes.join(" "));
+  url.searchParams.set("state", state);
+  url.searchParams.set("code_challenge", challenge);
+  url.searchParams.set("code_challenge_method", "S256");
+  url.searchParams.set("prompt", "none");
+
+  const iframe = document.createElement("iframe");
+  iframe.style.display = "none";
+  iframe.setAttribute("aria-hidden", "true");
+  iframe.src = url.toString();
+
+  const timeoutMs = params.timeoutMs ?? 10_000;
+
+  return new Promise<CallbackResult>((resolve, reject) => {
+    let settled = false;
+
+    const cleanup = () => {
+      settled = true;
+      window.removeEventListener("message", onMessage);
+      clearTimeout(timer);
+      if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+      storage().removeItem(STORAGE_PREFIX + state);
+    };
+
+    const onMessage = (ev: MessageEvent) => {
+      const data = ev.data as Partial<SilentRenewMessage> | null;
+      if (!data || data.type !== SILENT_RENEW_MESSAGE_TYPE) return;
+      if (data.state !== state) return;
+      const expectedOrigin = new URL(params.redirectUri).origin;
+      if (ev.origin !== expectedOrigin) return;
+      if (settled) return;
+
+      if (data.ok && data.tokens && data.scopes) {
+        cleanup();
+        resolve({ tokens: data.tokens, state, scopes: data.scopes });
+      } else {
+        cleanup();
+        reject(new Error(data.error || "silent renew failed"));
+      }
+    };
+
+    const timer = setTimeout(() => {
+      if (settled) return;
+      cleanup();
+      reject(new Error("silent renew timed out"));
+    }, timeoutMs);
+
+    window.addEventListener("message", onMessage);
+    document.body.appendChild(iframe);
+  });
+}
+
+/**
+ * Call this from the redirect page when it detects it's loaded inside a
+ * silent renew iframe (e.g. window.parent !== window).
+ * Exchanges the code for tokens and postMessages the result to the parent.
+ *
+ * The parent's silentRenew() promise resolves with this result.
+ *
+ * Returns true if this was a silent callback (handled), false otherwise
+ * (the page should run its normal handleCallback() logic).
+ */
+export async function handleSilentCallback(opts: {
+  clientId: string;
+  apiUrl?: string;
+}): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  if (window.parent === window) return false; // top-level navigation, not silent
+
+  const params = new URLSearchParams(window.location.search);
+  const state = params.get("state");
+  if (!state) return false;
+
+  const post = (msg: Omit<SilentRenewMessage, "type">) => {
+    // postMessage to parent. ターゲットoriginは限定したいが、複数RPが同じredirectUri
+    // を共有しないため "*" でも実害は低い。受信側で origin / state を二重チェックする
+    window.parent.postMessage({ type: SILENT_RENEW_MESSAGE_TYPE, ...msg }, "*");
+  };
+
+  const errorCode = params.get("error");
+  if (errorCode) {
+    const desc = params.get("error_description");
+    post({ ok: false, error: `${errorCode}${desc ? ` — ${desc}` : ""}`, state });
+    return true;
+  }
+
+  const code = params.get("code");
+  if (!code) {
+    post({ ok: false, error: "Missing code in callback URL", state });
+    return true;
+  }
+
+  const raw = storage().getItem(STORAGE_PREFIX + state);
+  if (!raw) {
+    post({ ok: false, error: "Unknown state — possible CSRF or expired flow", state });
+    return true;
+  }
+  const pending = JSON.parse(raw) as PendingAuth;
+  storage().removeItem(STORAGE_PREFIX + state);
+
+  try {
+    const tokens = await exchangeCodeForTokens({
+      clientId: opts.clientId,
+      code,
+      codeVerifier: pending.verifier,
+      redirectUri: pending.redirectUri,
+      apiUrl: opts.apiUrl,
+    });
+    post({ ok: true, tokens, scopes: pending.scopes, state });
+  } catch (err) {
+    post({ ok: false, error: err instanceof Error ? err.message : String(err), state });
+  }
+  return true;
+}
+
 export interface SignOutParams {
   /**
    * Token to revoke. Required when mode is "revoke" (default).

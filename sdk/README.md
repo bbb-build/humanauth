@@ -99,6 +99,44 @@ await signOut({
 
 `buildEndSessionUrl(...)` returns the same URL without performing the redirect — useful for `<a href>` links or framework-level routing.
 
+### Silent refresh — keep access tokens fresh
+
+Two helpers, depending on whether your SPA holds a refresh token:
+
+```typescript
+import { startAutoRefresh, silentRenew, handleSilentCallback } from "humad-sdk";
+
+// (a) If you stored the refresh_token from handleCallback():
+const controller = startAutoRefresh({
+  clientId: "ha_oauth_xxxxxxxx",
+  initialTokens: tokens,
+  onUpdate: (next) => setTokens(next),        // persist the new tokens
+  onError: (err) => console.warn(err),        // refresh failed — re-login
+  refreshLeewaySec: 60,                       // refresh 60s before exp
+});
+// later, when the user signs out or the component unmounts:
+controller.stop();
+
+// (b) If you can't safely hold a refresh_token, use iframe + prompt=none:
+//     The IdP's SSO cookie must still be active (typical web SaaS UX).
+try {
+  const { tokens: next } = await silentRenew({
+    clientId: "ha_oauth_xxxxxxxx",
+    redirectUri: "https://yourapp.com/oauth/callback",
+  });
+  setTokens(next);
+} catch (err) {
+  // SSO expired — fall back to interactive signIn()
+}
+
+// On your /oauth/callback page, handle BOTH normal callback and silent iframe:
+const wasSilent = await handleSilentCallback({ clientId });
+if (!wasSilent) {
+  const { tokens } = await handleCallback({ clientId });
+  // ... normal post-login flow
+}
+```
+
 ### Server flow (confidential client)
 
 ```typescript
