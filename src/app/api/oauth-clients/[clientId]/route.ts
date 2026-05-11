@@ -140,6 +140,12 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
     return NextResponse.json({ error: "Failed to update client" }, { status: 500 });
   }
 
+  logger.info("oauth-client-updated", {
+    clientId,
+    ownerHaUserId,
+    updatedFields: Object.keys(update),
+  });
+
   return NextResponse.json({ client: updated });
 }
 
@@ -163,7 +169,13 @@ export async function DELETE(req: NextRequest, ctx: RouteContext) {
 
   if (!existing) return NextResponse.json({ error: "Client not found" }, { status: 404 });
 
-  await supabase.from("ha_oauth_clients").delete().eq("client_id", clientId);
+  const { error: delErr } = await supabase.from("ha_oauth_clients").delete().eq("client_id", clientId);
+  if (delErr) {
+    logger.error("oauth-client-delete-failed", { clientId, ownerHaUserId, ...errCtx(delErr) });
+    return NextResponse.json({ error: "Failed to delete client" }, { status: 500 });
+  }
+
+  logger.info("oauth-client-deleted", { clientId, ownerHaUserId });
 
   return NextResponse.json({ success: true });
 }
