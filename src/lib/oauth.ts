@@ -1,9 +1,12 @@
 import { randomBytes, createHash } from "node:crypto";
 import { getSupabaseAdmin } from "./supabase";
+import { SUPPORTED_SCOPES as REGISTRY_SUPPORTED_SCOPES, type Scope as RegistryScope } from "./scopes";
 
 // OAuth/OIDC共通定数
-export const SUPPORTED_SCOPES = ["openid", "profile", "verified_human", "email"] as const;
-export type Scope = (typeof SUPPORTED_SCOPES)[number];
+// scope の正本は src/lib/scopes.ts の SCOPE_REGISTRY。
+// このファイルでは型互換性のため re-export のみ行う。
+export const SUPPORTED_SCOPES = REGISTRY_SUPPORTED_SCOPES;
+export type Scope = RegistryScope;
 
 export const ACCESS_TOKEN_TTL_SEC = 15 * 60; // 15min
 export const REFRESH_TOKEN_TTL_SEC = 30 * 24 * 60 * 60; // 30d

@@ -1,5 +1,7 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getOAuthClient, parseScopes } from "@/lib/oauth";
+import { detectLocale, getScopeDisplay } from "@/lib/scopes";
 import { getSsoUserId } from "@/lib/sso-session";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import ConsentClient from "./ConsentClient";
@@ -12,13 +14,6 @@ import ConsentClient from "./ConsentClient";
 interface PageProps {
   searchParams: Promise<{ return_to?: string; client_id?: string; scope?: string }>;
 }
-
-const SCOPE_DESCRIPTIONS: Record<string, string> = {
-  openid: "Sign you in with Humad",
-  profile: "View your handle and display name",
-  verified_human: "Confirm you are a verified human (no personal data)",
-  email: "View your email address (only if you have one set)",
-};
 
 export default async function ConsentPage({ searchParams }: PageProps) {
   const { return_to, client_id, scope } = await searchParams;
@@ -50,10 +45,9 @@ export default async function ConsentPage({ searchParams }: PageProps) {
     .eq("id", userId)
     .single();
 
-  const scopeRows = scopes.map((s) => ({
-    scope: s,
-    description: SCOPE_DESCRIPTIONS[s] || s,
-  }));
+  const headerList = await headers();
+  const locale = detectLocale(headerList.get("accept-language"));
+  const scopeRows = scopes.map((s) => getScopeDisplay(s, locale));
 
   return (
     <ConsentClient
@@ -64,6 +58,7 @@ export default async function ConsentPage({ searchParams }: PageProps) {
       returnTo={return_to}
       userHandle={(user?.handle as string | undefined) || ""}
       userDisplayName={(user?.display_name as string | undefined) || ""}
+      locale={locale}
     />
   );
 }
