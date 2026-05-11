@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { jwtVerify } from "jose";
+import { jwtVerify, decodeProtectedHeader } from "jose";
 import { getOAuthClient } from "@/lib/oauth";
-import { getPublicKey, getIssuer } from "@/lib/oidc-keys";
+import { getPublicKeyByKid, getIssuer } from "@/lib/oidc-keys";
 import { revokeSsoSession } from "@/lib/sso-session";
 import { corsPreflightResponse, withCors } from "@/lib/oauth-cors";
 
@@ -37,10 +37,13 @@ async function handle(req: NextRequest, params: URLSearchParams): Promise<NextRe
   const state = params.get("state") ?? "";
 
   // id_token_hint検証（あれば）。aud（client_id）/ subを抽出
+  // 鍵ローテーション中は kid に基づいて current / previous の公開鍵を選択
   let hintAud: string | null = null;
   if (idTokenHint) {
     try {
-      const pub = await getPublicKey();
+      const header = decodeProtectedHeader(idTokenHint);
+      const pub = await getPublicKeyByKid(typeof header.kid === "string" ? header.kid : undefined);
+      if (!pub) throw new Error("Unknown kid in id_token_hint");
       // expiredなid_tokenでもログアウト目的なので exp 検証はスキップ
       const { payload } = await jwtVerify(idTokenHint, pub, {
         issuer: getIssuer(),

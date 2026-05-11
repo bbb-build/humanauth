@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
-import { getPublicJwk } from "@/lib/oidc-keys";
+import { getAllPublicJwks } from "@/lib/oidc-keys";
 import { withPublicCors, publicCorsPreflightResponse } from "@/lib/oauth-cors";
 
 export async function GET() {
-  const jwk = await getPublicJwk();
-  const res = NextResponse.json({
-    keys: [jwk],
-  });
+  const keys = await getAllPublicJwks();
+  const res = NextResponse.json({ keys });
   return withPublicCors(res);
 }
 
