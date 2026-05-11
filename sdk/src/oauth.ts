@@ -271,15 +271,62 @@ export async function getUser(tokens: TokenSet, apiUrl?: string): Promise<UserIn
 }
 
 export interface SignOutParams {
-  token: string;
+  /**
+   * Token to revoke. Required when mode is "revoke" (default).
+   * Not required when mode is "navigate".
+   */
+  token?: string;
   tokenTypeHint?: "access_token" | "refresh_token";
   clientId: string;
   clientSecret?: string;
   apiUrl?: string;
+  /**
+   * "revoke" (default): call /api/oauth/revoke to invalidate the token.
+   *   Quiet, server-friendly, no browser navigation.
+   * "navigate": redirect the browser to /api/oauth/end-session for
+   *   OIDC RP-Initiated Logout. Also ends the user's Humad SSO session.
+   *   Requires a browser; throws if window is not available.
+   */
+  mode?: "revoke" | "navigate";
+  /**
+   * OIDC RP-Initiated Logout parameters (used only when mode="navigate").
+   * id_token issued earlier — helps the IdP identify the user / RP.
+   */
+  idTokenHint?: string;
+  /**
+   * Where the IdP should send the browser after logout.
+   * MUST be pre-registered on the client's post_logout_redirect_uris.
+   */
+  postLogoutRedirectUri?: string;
+  /**
+   * Opaque value echoed back as ?state= on post_logout_redirect_uri.
+   */
+  state?: string;
 }
 
 export async function signOut(params: SignOutParams): Promise<void> {
   const apiUrl = params.apiUrl || DEFAULT_API_URL;
+  const mode = params.mode ?? "revoke";
+
+  if (mode === "navigate") {
+    if (typeof window === "undefined") {
+      throw new Error('signOut({ mode: "navigate" }) requires a browser');
+    }
+    const url = buildEndSessionUrl({
+      apiUrl,
+      clientId: params.clientId,
+      idTokenHint: params.idTokenHint,
+      postLogoutRedirectUri: params.postLogoutRedirectUri,
+      state: params.state,
+    });
+    window.location.href = url;
+    return;
+  }
+
+  // mode === "revoke" — preserve existing behavior
+  if (!params.token) {
+    throw new Error('signOut({ mode: "revoke" }) requires a token');
+  }
   const body = new URLSearchParams({
     token: params.token,
     client_id: params.clientId,
@@ -292,4 +339,29 @@ export async function signOut(params: SignOutParams): Promise<void> {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),
   });
+}
+
+export interface EndSessionUrlParams {
+  apiUrl?: string;
+  clientId?: string;
+  idTokenHint?: string;
+  postLogoutRedirectUri?: string;
+  state?: string;
+}
+
+/**
+ * Build the OIDC RP-Initiated Logout URL without performing navigation.
+ * Useful when the caller wants to attach the URL to a link or perform
+ * the redirect via a framework router.
+ */
+export function buildEndSessionUrl(params: EndSessionUrlParams): string {
+  const apiUrl = params.apiUrl || DEFAULT_API_URL;
+  const url = new URL(`${apiUrl}/api/oauth/end-session`);
+  if (params.idTokenHint) url.searchParams.set("id_token_hint", params.idTokenHint);
+  if (params.clientId) url.searchParams.set("client_id", params.clientId);
+  if (params.postLogoutRedirectUri) {
+    url.searchParams.set("post_logout_redirect_uri", params.postLogoutRedirectUri);
+  }
+  if (params.state) url.searchParams.set("state", params.state);
+  return url.toString();
 }

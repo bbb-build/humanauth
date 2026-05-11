@@ -76,9 +76,28 @@ const { tokens } = await handleCallback({ clientId: "ha_oauth_xxxxxxxx" });
 const user = await getUser(tokens);
 console.log(user.handle, user.verified_human);
 
-// 3. Sign out:
-await signOut({ token: tokens.refreshToken!, tokenTypeHint: "refresh_token", clientId: "ha_oauth_xxxxxxxx" });
+// 3. Sign out — two modes:
+
+// 3a. Quiet token revocation (default). Invalidates the token; no navigation.
+await signOut({
+  token: tokens.refreshToken!,
+  tokenTypeHint: "refresh_token",
+  clientId: "ha_oauth_xxxxxxxx",
+});
+
+// 3b. OIDC RP-Initiated Logout. Ends the user's Humad SSO session and
+//     redirects back to your post-logout page. Requires post_logout_redirect_uri
+//     to be pre-registered on the OAuth client.
+await signOut({
+  mode: "navigate",
+  clientId: "ha_oauth_xxxxxxxx",
+  idTokenHint: tokens.idToken,
+  postLogoutRedirectUri: "https://yourapp.com/goodbye",
+  state: "csrf-token-or-return-marker",
+});
 ```
+
+`buildEndSessionUrl(...)` returns the same URL without performing the redirect — useful for `<a href>` links or framework-level routing.
 
 ### Server flow (confidential client)
 

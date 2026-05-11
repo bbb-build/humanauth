@@ -145,6 +145,24 @@ async function getUser(tokens, apiUrl) {
 }
 async function signOut(params) {
   const apiUrl = params.apiUrl || DEFAULT_API_URL;
+  const mode = params.mode ?? "revoke";
+  if (mode === "navigate") {
+    if (typeof window === "undefined") {
+      throw new Error('signOut({ mode: "navigate" }) requires a browser');
+    }
+    const url = buildEndSessionUrl({
+      apiUrl,
+      clientId: params.clientId,
+      idTokenHint: params.idTokenHint,
+      postLogoutRedirectUri: params.postLogoutRedirectUri,
+      state: params.state
+    });
+    window.location.href = url;
+    return;
+  }
+  if (!params.token) {
+    throw new Error('signOut({ mode: "revoke" }) requires a token');
+  }
   const body = new URLSearchParams({
     token: params.token,
     client_id: params.clientId
@@ -156,6 +174,17 @@ async function signOut(params) {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString()
   });
+}
+function buildEndSessionUrl(params) {
+  const apiUrl = params.apiUrl || DEFAULT_API_URL;
+  const url = new URL(`${apiUrl}/api/oauth/end-session`);
+  if (params.idTokenHint) url.searchParams.set("id_token_hint", params.idTokenHint);
+  if (params.clientId) url.searchParams.set("client_id", params.clientId);
+  if (params.postLogoutRedirectUri) {
+    url.searchParams.set("post_logout_redirect_uri", params.postLogoutRedirectUri);
+  }
+  if (params.state) url.searchParams.set("state", params.state);
+  return url.toString();
 }
 
 // src/index.ts
@@ -211,6 +240,7 @@ async function getRpContext(params) {
 }
 export {
   HumanAuthClient,
+  buildEndSessionUrl,
   exchangeCodeForTokens,
   generatePkcePair,
   getRpContext,
