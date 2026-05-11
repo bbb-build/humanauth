@@ -4,6 +4,16 @@ const WINDOW_MS = 60_000;
 const MAX_REQUESTS = 60;
 const VERIFY_MAX = 30;
 
+// Per-OAuth-client rate limits（per-IP/per-userとは別バケット）
+// 暴走RPがHumadのバックエンドを飽和させるのを防ぐためのガード。
+// 値はRP1個あたりの "正常運用なら絶対に超えない" 上限。超えたら429を返す。
+//
+//   token   : authorization_code + refresh_tokenの合算。SPAが複数タブで
+//             silent refreshを回しても 5 req/sec で十分余裕がある
+//   userinfo: SPAがページ遷移ごとに叩く想定で広めに。10 req/sec
+const CLIENT_TOKEN_MAX = 300;
+const CLIENT_USERINFO_MAX = 600;
+
 // In-memory fallback（単一インスタンスのみ有効）
 const memoryStore = new Map<string, { count: number; resetAt: number }>();
 
@@ -95,4 +105,22 @@ export function getClientIp(req: Request): string {
   return "unknown";
 }
 
-export { VERIFY_MAX };
+// OAuth client_id 単位のレート制限。
+// per-IP / per-user とは独立した名前空間（`client:` prefix）でバケットを切る。
+// 用途別に op を分けることで、たとえば token と userinfo の枯渇が干渉しない。
+//
+// なぜ per-client が必要か:
+//   - RP サーバーは複数IPを持ちうる（autoscale, multi-region）ため per-IP では守れない
+//   - RP のバグで /token を無限ループで叩かれた場合、per-user では client_id 跨ぎでしか守れない
+//   - OAuth実装の標準的なガード（Auth0/Okta/Googleも同様の per-client quota を持つ）
+export async function rateLimitClient(
+  clientId: string,
+  op: "token" | "userinfo",
+  limit?: number,
+): Promise<NextResponse | null> {
+  const effectiveLimit =
+    limit ?? (op === "token" ? CLIENT_TOKEN_MAX : CLIENT_USERINFO_MAX);
+  return rateLimit(`client:${op}:${clientId}`, effectiveLimit);
+}
+
+export { VERIFY_MAX, CLIENT_TOKEN_MAX, CLIENT_USERINFO_MAX };
