@@ -12,6 +12,7 @@ import {
 import { signIdToken } from "@/lib/oidc-id-token";
 import { hashToken } from "@/lib/oauth";
 import { withCors, corsPreflightResponse } from "@/lib/oauth-cors";
+import { logger, errCtx } from "@/lib/logger";
 
 // OAuth Token Endpoint
 // POST /api/oauth/token
@@ -26,16 +27,23 @@ export async function POST(req: NextRequest) {
   // クライアント認証（Authorization: Basic か client_id/client_secret form）
   const auth = await authenticateClient(req, form);
   if (!auth.ok) {
+    logger.warn("token-client-auth-failed", { reason: auth.reason, grantType });
     return withCors(tokenError("invalid_client", auth.reason, 401), req);
   }
 
   let res: NextResponse;
-  if (grantType === "authorization_code") {
-    res = await handleAuthorizationCode(form, auth.clientId, auth.client);
-  } else if (grantType === "refresh_token") {
-    res = await handleRefreshToken(form, auth.clientId);
-  } else {
-    res = tokenError("unsupported_grant_type", `grant_type=${grantType} is not supported`);
+  try {
+    if (grantType === "authorization_code") {
+      res = await handleAuthorizationCode(form, auth.clientId, auth.client);
+    } else if (grantType === "refresh_token") {
+      res = await handleRefreshToken(form, auth.clientId);
+    } else {
+      res = tokenError("unsupported_grant_type", `grant_type=${grantType} is not supported`);
+    }
+  } catch (e) {
+    // ハンドラ内で発生した予期せぬ例外（Supabase疎通失敗、JWT署名失敗など）
+    logger.error("token-handler-failed", { clientId: auth.clientId, grantType, ...errCtx(e) });
+    res = tokenError("server_error", "Internal error", 500);
   }
   return withCors(res, req);
 }
