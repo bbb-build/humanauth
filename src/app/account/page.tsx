@@ -26,11 +26,14 @@ export default function AccountPage() {
   const [handle, setHandle] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [email, setEmail] = useState("");
 
   const [savingHandle, setSavingHandle] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [savingEmail, setSavingEmail] = useState(false);
   const [handleMsg, setHandleMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
   const [profileMsg, setProfileMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
+  const [emailMsg, setEmailMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
 
   const authHeader = useCallback((): HeadersInit => {
     const token = typeof window !== "undefined" ? localStorage.getItem("ha_token") : null;
@@ -56,6 +59,7 @@ export default function AccountPage() {
         setHandle(data.user.handle);
         setDisplayName(data.user.display_name ?? "");
         setAvatarUrl(data.user.avatar_url ?? "");
+        setEmail(data.user.email ?? "");
       }
     } finally {
       setLoading(false);
@@ -100,6 +104,36 @@ export default function AccountPage() {
     if (typeof window !== "undefined") {
       localStorage.removeItem("ha_token");
       window.location.href = "/dashboard";
+    }
+  }
+
+  async function onSaveEmail() {
+    if (!user) return;
+    setSavingEmail(true);
+    setEmailMsg(null);
+    try {
+      const trimmed = email.trim();
+      const body = { email: trimmed === "" ? null : trimmed };
+      const res = await fetch("/api/users/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...authHeader() },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setEmailMsg({ tone: "err", text: data.error ?? "Failed to update email" });
+        return;
+      }
+      setUser(data.user);
+      setEmail(data.user.email ?? "");
+      setEmailMsg({
+        tone: "ok",
+        text: trimmed === "" ? "Email cleared" : "Email saved (unverified)",
+      });
+    } catch (e) {
+      setEmailMsg({ tone: "err", text: String(e) });
+    } finally {
+      setSavingEmail(false);
     }
   }
 
@@ -270,6 +304,44 @@ export default function AccountPage() {
         >
           {savingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           Save profile
+        </button>
+      </section>
+
+      {/* Email section */}
+      <section className="mb-10 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-6">
+        <h2 className="mb-1 text-lg font-semibold">Email</h2>
+        <p className="mb-4 text-xs text-[var(--text-tertiary)]">
+          自己申告のメールアドレス。保存時は <code>email_verified=false</code> 扱いになり、OIDCの
+          <code>email</code> claim として連携先RPに渡されます（検証フローは未実装）。
+        </p>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          maxLength={254}
+          autoComplete="email"
+          spellCheck={false}
+          placeholder="you@example.com"
+          className="mb-4 w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 py-2 text-base focus:border-[var(--accent)] focus:outline-none"
+        />
+
+        {emailMsg && (
+          <p
+            className={`mb-3 text-sm ${
+              emailMsg.tone === "ok" ? "text-[var(--success)]" : "text-[var(--error)]"
+            }`}
+          >
+            {emailMsg.text}
+          </p>
+        )}
+
+        <button
+          onClick={onSaveEmail}
+          disabled={savingEmail || email.trim() === (user.email ?? "")}
+          className="inline-flex items-center gap-2 rounded-md border border-[var(--border-color)] px-4 py-2 text-sm font-medium hover:border-[var(--border-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {savingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          Save email
         </button>
       </section>
 
