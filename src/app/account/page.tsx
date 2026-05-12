@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, AtSign, Check, Loader2, LogOut, Save, ShieldCheck } from "lucide-react";
+import { ArrowLeft, AtSign, Check, Loader2, LogOut, Save, ShieldCheck, Trash2, AlertTriangle } from "lucide-react";
 
 interface UserProfile {
   id: string;
@@ -31,6 +31,10 @@ export default function AccountPage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [handleMsg, setHandleMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
   const [profileMsg, setProfileMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
+
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteMsg, setDeleteMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
 
   const authHeader = useCallback((): HeadersInit => {
     const token = typeof window !== "undefined" ? localStorage.getItem("ha_token") : null;
@@ -100,6 +104,32 @@ export default function AccountPage() {
     if (typeof window !== "undefined") {
       localStorage.removeItem("ha_token");
       window.location.href = "/dashboard";
+    }
+  }
+
+  async function onDeleteAccount() {
+    if (deleteConfirm !== "DELETE") return;
+    setDeleting(true);
+    setDeleteMsg(null);
+    try {
+      const res = await fetch("/api/users/me", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", ...authHeader() },
+        body: JSON.stringify({ confirmation: "DELETE" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setDeleteMsg({ tone: "err", text: data.error ?? "Failed to delete account" });
+        return;
+      }
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("ha_token");
+        window.location.href = "/";
+      }
+    } catch (e) {
+      setDeleteMsg({ tone: "err", text: String(e) });
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -286,6 +316,60 @@ export default function AccountPage() {
           <Row label="User ID" value={user.id} mono />
           <Row label="Created" value={new Date(user.created_at).toLocaleString()} />
         </dl>
+      </section>
+
+      {/* Danger zone: account deletion */}
+      <section className="mt-10 rounded-xl border border-[var(--error)]/40 bg-[var(--bg-card)] p-6">
+        <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold text-[var(--error)]">
+          <AlertTriangle className="h-5 w-5" />
+          Delete account
+        </h2>
+        <p className="mb-4 text-sm text-[var(--text-secondary)]">
+          アカウントを完全に削除します。以下のデータが <strong>全て即時消去</strong> されます:
+        </p>
+        <ul className="mb-4 list-disc space-y-1 pl-6 text-sm text-[var(--text-secondary)]">
+          <li>プロフィール (ハンドル / 表示名 / メール)</li>
+          <li>SSO セッションと OAuth トークン</li>
+          <li>連携先アプリへの同意記録</li>
+          <li>データアクセス履歴 (どの RP に何の claim を渡したか)</li>
+          <li>Vault 保存データ (humad.* / profile.* / external.* 等)</li>
+        </ul>
+        <p className="mb-4 text-xs text-[var(--text-tertiary)]">
+          OAuth クライアントを所有している場合は、所有者なし状態で残ります (利用中の RP を巻き添えにしないため)。<br />
+          再度 World ID で認証すれば新しいアカウントが作成されますが、旧アカウントのハンドル / 履歴は復元できません。
+        </p>
+
+        <label className="mb-1 block text-xs text-[var(--text-tertiary)]">
+          確認のため <code className="text-[var(--error)]">DELETE</code> と入力してください
+        </label>
+        <input
+          type="text"
+          value={deleteConfirm}
+          onChange={(e) => setDeleteConfirm(e.target.value)}
+          spellCheck={false}
+          autoCapitalize="off"
+          placeholder="DELETE"
+          className="mb-4 w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 py-2 text-base focus:border-[var(--error)] focus:outline-none"
+        />
+
+        {deleteMsg && (
+          <p
+            className={`mb-3 text-sm ${
+              deleteMsg.tone === "ok" ? "text-[var(--success)]" : "text-[var(--error)]"
+            }`}
+          >
+            {deleteMsg.text}
+          </p>
+        )}
+
+        <button
+          onClick={onDeleteAccount}
+          disabled={deleting || deleteConfirm !== "DELETE"}
+          className="inline-flex items-center gap-2 rounded-md bg-[var(--error)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+          Delete my account permanently
+        </button>
       </section>
     </main>
   );

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getOwnerId, unauthorized } from "@/lib/auth-helpers";
 import { rateLimit } from "@/lib/rate-limit";
+import { deleteUserCompletely } from "@/lib/user-delete";
+import { revokeSsoSession } from "@/lib/sso-session";
+import { logger, errCtx } from "@/lib/logger";
 
 // 認証中ユーザー（JWT.sub = nullifier_hash）の自プロフィール取得・更新。
 // ハンドル変更だけは別ルート /api/users/me/handle に分離（バリデーションが重いため）。
@@ -90,4 +93,66 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Update failed" }, { status: 500 });
   }
   return NextResponse.json({ user: data });
+}
+
+// アカウント完全削除。
+// 誤爆防止のため、リクエストボディに `{ "confirmation": "DELETE" }` を必須とする。
+// 削除パスは src/lib/user-delete.ts の deleteUserCompletely() に集約 (単一の正本)。
+// 成功後は SSO セッションも破棄する (cookie 残しても紐先 user_id が消えているため検証で落ちるが、明示的に消す)。
+export async function DELETE(req: NextRequest) {
+  const nullifier = await getOwnerId(req);
+  if (!nullifier) return unauthorized();
+
+  // 削除は連打される類ではないので、ハンドル変更と同じく per-nullifier で控えめに絞る
+  const limited = await rateLimit(`users-me-delete:${nullifier}`, 5);
+  if (limited) return limited;
+
+  let body: Record<string, unknown> = {};
+  try {
+    body = await req.json();
+  } catch {
+    // body 無しは下の confirmation チェックで弾く
+  }
+
+  if (body.confirmation !== "DELETE") {
+    return NextResponse.json(
+      { error: 'Confirmation required: body must include {"confirmation":"DELETE"}' },
+      { status: 400 },
+    );
+  }
+
+  // nullifier → user_id 解決
+  const supabase = getSupabaseAdmin();
+  const { data: userRow, error: lookupErr } = await supabase
+    .from("ha_users")
+    .select("id")
+    .eq("nullifier_hash", nullifier)
+    .maybeSingle();
+  if (lookupErr) {
+    logger.error("users-me-delete-lookup-failed", { ...errCtx(lookupErr) });
+    return NextResponse.json({ error: "Lookup failed" }, { status: 500 });
+  }
+  if (!userRow) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  const result = await deleteUserCompletely(userRow.id as string);
+  if (!result.deleted) {
+    if (result.reason === "not_found") {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    return NextResponse.json({ error: "Delete failed" }, { status: 500 });
+  }
+
+  // SSO cookie 破棄 (best-effort)。失敗しても削除自体は成功扱い
+  try {
+    await revokeSsoSession();
+  } catch (e) {
+    logger.warn("users-me-delete-sso-revoke-failed", { ...errCtx(e) });
+  }
+
+  return NextResponse.json({
+    deleted: true,
+    counts: result.counts,
+  });
 }
