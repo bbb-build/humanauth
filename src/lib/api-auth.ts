@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifyAccessToken, type Scope } from "./oauth";
 import { getSupabaseAdmin } from "./supabase";
 
 export interface AppContext {
@@ -10,6 +11,26 @@ export interface AppContext {
   plan: string;
   mauCurrentMonth: number;
   actionName: string | null;
+}
+
+export interface BearerAccessContext {
+  userId: string;
+  clientId: string;
+  scopes: Scope[];
+}
+
+export async function authenticateBearerAccessToken(req: NextRequest): Promise<BearerAccessContext | NextResponse> {
+  const auth = req.headers.get("authorization");
+  if (!auth?.startsWith("Bearer ")) {
+    return NextResponse.json({ error: "invalid_token" }, { status: 401 });
+  }
+
+  const verified = await verifyAccessToken(auth.slice(7).trim());
+  if (!verified) {
+    return NextResponse.json({ error: "invalid_token" }, { status: 401 });
+  }
+
+  return verified;
 }
 
 export async function authenticateApiKey(req: NextRequest): Promise<AppContext | NextResponse> {

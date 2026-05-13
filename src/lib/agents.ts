@@ -8,7 +8,10 @@ export interface AgentSummary {
   id: string;
   address: string;
   scopes: string[];
+  agentbookTxHash: string | null;
+  agentbookRegisteredAt: string | null;
   createdAt: string;
+  revokedAt: string | null;
   lastUsedAt: string | null;
   isRevoked: boolean;
 }
@@ -25,9 +28,20 @@ interface AgentPrivateKeyRow {
 interface AgentSummaryRow {
   id: string;
   address: string;
+  agentbook_tx_hash: string | null;
+  agentbook_registered_at: string | null;
   scopes: string[] | null;
   created_at: string;
   last_used_at: string | null;
+  revoked_at: string | null;
+}
+
+interface AgentRegistrationRow {
+  id: string;
+  user_id: string;
+  address: string;
+  agentbook_tx_hash: string | null;
+  agentbook_registered_at: string | null;
   revoked_at: string | null;
 }
 
@@ -70,6 +84,10 @@ export async function generateAgent(
   return { address, agentId: data.id };
 }
 
+export async function createAgent(userId: string, scopes: string[] = []): Promise<{ address: string; agentId: string }> {
+  return generateAgent(userId, scopes);
+}
+
 /**
  * Internal agent signing boundary. Do not expose this from API routes or UI code.
  */
@@ -100,7 +118,7 @@ export async function listAgentsByUser(userId: string): Promise<AgentSummary[]> 
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("ha_agents")
-    .select("id, address, scopes, created_at, last_used_at, revoked_at")
+    .select("id, address, agentbook_tx_hash, agentbook_registered_at, scopes, created_at, last_used_at, revoked_at")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
@@ -111,10 +129,39 @@ export async function listAgentsByUser(userId: string): Promise<AgentSummary[]> 
     id: row.id,
     address: row.address,
     scopes: row.scopes ?? [],
+    agentbookTxHash: row.agentbook_tx_hash,
+    agentbookRegisteredAt: row.agentbook_registered_at,
     createdAt: row.created_at,
+    revokedAt: row.revoked_at,
     lastUsedAt: row.last_used_at,
     isRevoked: row.revoked_at !== null,
   }));
+}
+
+export async function getAgentForRegistration(userId: string, address: string): Promise<AgentRegistrationRow | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("ha_agents")
+    .select("id, user_id, address, agentbook_tx_hash, agentbook_registered_at, revoked_at")
+    .eq("user_id", userId)
+    .eq("address", address)
+    .maybeSingle<AgentRegistrationRow>();
+
+  requireSupabaseSuccess(error, "getAgentForRegistration select");
+  return data ?? null;
+}
+
+export async function markAgentbookRegistered(agentId: string, txHash: string): Promise<string> {
+  const registeredAt = new Date().toISOString();
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase
+    .from("ha_agents")
+    .update({ agentbook_tx_hash: txHash, agentbook_registered_at: registeredAt })
+    .eq("id", agentId)
+    .is("agentbook_tx_hash", null);
+
+  requireSupabaseSuccess(error, "markAgentbookRegistered update");
+  return registeredAt;
 }
 
 export async function revokeAgent(agentId: string): Promise<void> {

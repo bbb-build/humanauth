@@ -4,6 +4,7 @@ interface AgentRow {
   address: string;
   encrypted_private_key: string;
   agentbook_tx_hash: string | null;
+  agentbook_registered_at: string | null;
   scopes: string[];
   created_at: string;
   revoked_at: string | null;
@@ -82,6 +83,7 @@ class QueryBuilder {
       address: this.payload.address as string,
       encrypted_private_key: this.payload.encrypted_private_key as string,
       agentbook_tx_hash: null,
+      agentbook_registered_at: null,
       scopes: this.payload.scopes as string[],
       created_at: new Date().toISOString(),
       revoked_at: null,
