@@ -334,12 +334,57 @@ function buildEndSessionUrl(params) {
   return url.toString();
 }
 
-// src/index.ts
+// src/agents.ts
 var DEFAULT_API_URL2 = "https://humanauth.vercel.app";
+var HumadAgentClient = class {
+  constructor(params) {
+    this.accessToken = params.accessToken;
+    this.apiUrl = (params.apiUrl || DEFAULT_API_URL2).replace(/\/+$/, "");
+  }
+  async startAgentRegistration() {
+    return this.request("/api/v1/agents", {
+      method: "POST"
+    });
+  }
+  async finalizeAgentRegistration(address, proof) {
+    return this.request(
+      `/api/v1/agents/${encodeURIComponent(address)}/finalize`,
+      {
+        method: "POST",
+        body: JSON.stringify(proof)
+      }
+    );
+  }
+  async listAgents() {
+    const data = await this.request("/api/v1/agents", {
+      method: "GET"
+    });
+    return data.agents;
+  }
+  async request(path, init) {
+    const res = await fetch(`${this.apiUrl}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${this.accessToken}`,
+        ...init.headers
+      }
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ error: res.statusText }));
+      const message = typeof error.error === "string" ? error.error : typeof error.message === "string" ? error.message : "Humad agent API request failed";
+      throw new Error(message);
+    }
+    return res.json();
+  }
+};
+
+// src/index.ts
+var DEFAULT_API_URL3 = "https://humanauth.vercel.app";
 var HumanAuthClient = class {
   constructor(params) {
     this.apiKey = params.apiKey;
-    this.apiUrl = params.apiUrl || DEFAULT_API_URL2;
+    this.apiUrl = params.apiUrl || DEFAULT_API_URL3;
   }
   async verify(params) {
     const res = await fetch(`${this.apiUrl}/api/verify`, {
@@ -386,6 +431,7 @@ async function getRpContext(params) {
   return client.getRpContext(params.action);
 }
 export {
+  HumadAgentClient,
   HumanAuthClient,
   buildEndSessionUrl,
   exchangeCodeForTokens,

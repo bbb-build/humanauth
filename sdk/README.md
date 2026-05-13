@@ -160,6 +160,34 @@ OIDC discovery: `https://humanauth.vercel.app/.well-known/openid-configuration`.
 
 > The IdP currently lives at `humanauth.vercel.app` as a placeholder domain. A `humad.*` custom domain will be assigned later — the SDK reads the issuer URL from the OIDC discovery document, so no breaking change is expected.
 
+## L3: Authorize Agent
+
+Use the L3 agent delegation helpers after Login with Humad has returned an L2 `accessToken`.
+The React component starts registration, renders the World App QR code, and finalizes registration
+when your app supplies a World ID proof through `pendingProof`.
+
+```tsx
+import { AuthorizeAgent } from "humad-sdk/react";
+
+<AuthorizeAgent
+  accessToken={session.accessToken}
+  pendingProof={proof}
+  onAuthorized={(result) => console.log("Agent registered:", result.agent_address)}
+  onError={(err) => console.error(err)}
+/>
+```
+
+Server-side or Node flows can use the API wrapper directly:
+
+```typescript
+import { HumadAgentClient } from "humad-sdk";
+
+const agents = new HumadAgentClient({ accessToken: session.accessToken });
+const start = await agents.startAgentRegistration();
+const finalized = await agents.finalizeAgentRegistration(start.agent_address, proof);
+const existingAgents = await agents.listAgents();
+```
+
 ## What Humad handles for you
 
 | Concern | Without Humad | With Humad |

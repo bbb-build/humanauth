@@ -1,5 +1,16 @@
 import * as react_jsx_runtime from 'react/jsx-runtime';
 
+interface AgentRegistrationProof {
+    root: string;
+    nullifierHash: string;
+    proof: string[];
+}
+interface AgentRegistrationFinalized {
+    agent_address: string;
+    agentbook_tx_hash: string;
+    agentbook_registered_at: string;
+}
+
 interface HumanAuthProps {
     appId: string;
     /** @deprecated Use widget flow (appId only) instead. API keys should only be used server-side. */
@@ -10,6 +21,16 @@ interface HumanAuthProps {
     onVerified: (result: VerifyResult) => void;
     onError?: (error: Error) => void;
     children?: React.ReactNode;
+    className?: string;
+}
+interface AuthorizeAgentProps {
+    accessToken: string;
+    apiUrl?: string;
+    pendingProof?: AgentRegistrationProof;
+    onAuthorized: (result: AgentRegistrationFinalized) => void;
+    onError?: (err: Error) => void;
+    /** Optional label displayed above the QR code. */
+    label?: string;
     className?: string;
 }
 interface VerifyResult {
@@ -32,6 +53,7 @@ interface RpContext {
  * Server-side: use `verifyWithHumanAuth()` with apiKey instead.
  */
 declare function HumanAuth({ appId, apiKey, action, apiUrl, verificationLevel, onVerified, onError, children, className, }: HumanAuthProps): react_jsx_runtime.JSX.Element;
+declare function AuthorizeAgent({ accessToken, apiUrl, pendingProof, onAuthorized, onError, label, className, }: AuthorizeAgentProps): react_jsx_runtime.JSX.Element;
 /**
  * Server-side verification helper.
  * Call this from your API route to verify a World ID proof via HumanAuth.
@@ -46,4 +68,4 @@ declare function verifyWithHumanAuth(params: {
     apiUrl?: string;
 }): Promise<VerifyResult>;
 
-export { HumanAuth, type HumanAuthProps, type RpContext, type VerifyResult, verifyWithHumanAuth };
+export { AuthorizeAgent, type AuthorizeAgentProps, HumanAuth, type HumanAuthProps, type RpContext, type VerifyResult, verifyWithHumanAuth };

@@ -3,6 +3,7 @@ const DEFAULT_API_URL = "https://humanauth.vercel.app";
 
 // "Login with Humad" (OAuth 2.1 + OIDC) re-exports
 export * from "./oauth";
+export * from "./agents";
 
 export interface VerifyParams {
   apiKey: string;
