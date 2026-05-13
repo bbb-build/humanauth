@@ -76,10 +76,10 @@ export async function getNextNonce(agentAddress: Address): Promise<bigint> {
   const args = [getAddress(agentAddress)] as const;
 
   try {
-    return await client.readContract({ address, abi, functionName: "nonces", args });
+    return (await client.readContract({ address, abi, functionName: "nonces", args })) as bigint;
   } catch (err) {
     try {
-      return await client.readContract({ address, abi, functionName: "getNextNonce", args });
+      return (await client.readContract({ address, abi, functionName: "getNextNonce", args })) as bigint;
     } catch {
       throw err;
     }
