@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS ha_agents (
   -- lib/crypto.ts encryptWithActiveKey: v<N>:<base64>
   encrypted_private_key TEXT NOT NULL CHECK (encrypted_private_key ~ '^v[0-9]+:[A-Za-z0-9+/]+={0,2}$'),
   agentbook_tx_hash TEXT,
+  agentbook_registered_at TIMESTAMPTZ,
   scopes TEXT[] NOT NULL DEFAULT '{}',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   revoked_at TIMESTAMPTZ,
@@ -27,3 +28,4 @@ ALTER TABLE ha_agents ENABLE ROW LEVEL SECURITY;
 
 COMMENT ON TABLE ha_agents IS 'HumanAuth L3 custodial agent wallets. Private keys are encrypted with lib/crypto.ts active key.';
 COMMENT ON COLUMN ha_agents.agentbook_tx_hash IS 'Phase 2でAgentBookオンチェーン登録後に更新するtransaction hash。';
+COMMENT ON COLUMN ha_agents.agentbook_registered_at IS 'AgentBook registration relay transaction accepted timestamp.';

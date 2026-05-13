@@ -1,0 +1,38 @@
+[
+  {
+    "type": "function",
+    "name": "nonces",
+    "stateMutability": "view",
+    "inputs": [{ "name": "agent", "type": "address" }],
+    "outputs": [{ "name": "nonce", "type": "uint256" }]
+  },
+  {
+    "type": "function",
+    "name": "getNextNonce",
+    "stateMutability": "view",
+    "inputs": [{ "name": "agent", "type": "address" }],
+    "outputs": [{ "name": "nonce", "type": "uint256" }]
+  },
+  {
+    "type": "function",
+    "name": "register",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      { "name": "agent", "type": "address" },
+      { "name": "root", "type": "uint256" },
+      { "name": "nonce", "type": "uint256" },
+      { "name": "nullifierHash", "type": "uint256" },
+      { "name": "proof", "type": "uint256[8]" }
+    ],
+    "outputs": []
+  },
+  {
+    "type": "event",
+    "name": "AgentRegistered",
+    "inputs": [
+      { "name": "agent", "type": "address", "indexed": true },
+      { "name": "humanId", "type": "uint256", "indexed": true }
+    ],
+    "anonymous": false
+  }
+]
