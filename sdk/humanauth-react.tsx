@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  AgentRegistrationFinalized,
+  AgentRegistrationProof,
+  AgentRegistrationStart,
+  HumadAgentClient,
+} from "./src/agents";
 
 interface HumanAuthProps {
   appId: string;
@@ -12,6 +18,17 @@ interface HumanAuthProps {
   onVerified: (result: VerifyResult) => void;
   onError?: (error: Error) => void;
   children?: React.ReactNode;
+  className?: string;
+}
+
+interface AuthorizeAgentProps {
+  accessToken: string;
+  apiUrl?: string;
+  pendingProof?: AgentRegistrationProof;
+  onAuthorized: (result: AgentRegistrationFinalized) => void;
+  onError?: (err: Error) => void;
+  /** Optional label displayed above the QR code. */
+  label?: string;
   className?: string;
 }
 
@@ -220,6 +237,79 @@ export function HumanAuth({
   );
 }
 
+export function AuthorizeAgent({
+  accessToken,
+  apiUrl,
+  pendingProof,
+  onAuthorized,
+  onError,
+  label,
+  className,
+}: AuthorizeAgentProps) {
+  const [start, setStart] = useState<AgentRegistrationStart | null>(null);
+  const [finalizing, setFinalizing] = useState(false);
+  const finalizedProofRef = useRef<string | null>(null);
+  const onAuthorizedRef = useRef(onAuthorized);
+  const onErrorRef = useRef(onError);
+  const client = useMemo(() => new HumadAgentClient({ accessToken, apiUrl }), [accessToken, apiUrl]);
+
+  useEffect(() => {
+    onAuthorizedRef.current = onAuthorized;
+    onErrorRef.current = onError;
+  }, [onAuthorized, onError]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setStart(null);
+    setFinalizing(false);
+    finalizedProofRef.current = null;
+
+    client
+      .startAgentRegistration()
+      .then((result) => {
+        if (!cancelled) setStart(result);
+      })
+      .catch((err) => {
+        if (!cancelled) onErrorRef.current?.(err instanceof Error ? err : new Error(String(err)));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [client]);
+
+  useEffect(() => {
+    if (!start || !pendingProof) return;
+
+    const proofKey = JSON.stringify({
+      address: start.agent_address,
+      proof: pendingProof,
+    });
+    if (finalizedProofRef.current === proofKey) return;
+
+    finalizedProofRef.current = proofKey;
+    setFinalizing(true);
+    client
+      .finalizeAgentRegistration(start.agent_address, pendingProof)
+      .then((result) => onAuthorizedRef.current(result))
+      .catch((err) => onErrorRef.current?.(err instanceof Error ? err : new Error(String(err))))
+      .finally(() => setFinalizing(false));
+  }, [client, pendingProof, start]);
+
+  if (!start) {
+    return <div className={className}>Loading...</div>;
+  }
+
+  return (
+    <div className={className}>
+      {label && <div>{label}</div>}
+      <img src={start.qr_data} alt="Authorize agent with World App" />
+      <div>Agent: {start.agent_address}</div>
+      {finalizing && <div>Finalizing...</div>}
+    </div>
+  );
+}
+
 function HumanAuthWithIDKit({
   idkit,
   rpContext,
@@ -332,4 +422,4 @@ export async function verifyWithHumanAuth(params: {
   return res.json();
 }
 
-export type { HumanAuthProps, VerifyResult, RpContext };
+export type { AuthorizeAgentProps, HumanAuthProps, VerifyResult, RpContext };

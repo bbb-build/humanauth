@@ -199,6 +199,47 @@ interface EndSessionUrlParams {
  */
 declare function buildEndSessionUrl(params: EndSessionUrlParams): string;
 
+interface AgentRegistrationStart {
+    agent_address: string;
+    nonce: string;
+    verification_url: string;
+    qr_data: string;
+    action: string;
+    signal: string;
+    world_app_id: string;
+}
+interface AgentRegistrationProof {
+    root: string;
+    nullifierHash: string;
+    proof: string[];
+}
+interface AgentRegistrationFinalized {
+    agent_address: string;
+    agentbook_tx_hash: string;
+    agentbook_registered_at: string;
+}
+interface AgentSummary {
+    address: string;
+    agentbook_tx_hash: string | null;
+    agentbook_registered_at: string | null;
+    scopes: string[];
+    created_at: string;
+    revoked_at: string | null;
+    last_used_at: string | null;
+}
+declare class HumadAgentClient {
+    private accessToken;
+    private apiUrl;
+    constructor(params: {
+        accessToken: string;
+        apiUrl?: string;
+    });
+    startAgentRegistration(): Promise<AgentRegistrationStart>;
+    finalizeAgentRegistration(address: string, proof: AgentRegistrationProof): Promise<AgentRegistrationFinalized>;
+    listAgents(): Promise<AgentSummary[]>;
+    private request;
+}
+
 interface VerifyParams {
     apiKey: string;
     proof: string;
@@ -240,4 +281,4 @@ declare function getRpContext(params: {
     apiUrl?: string;
 }): Promise<RpContextResult>;
 
-export { type AutoRefreshController, type AutoRefreshParams, type CallbackResult, type EndSessionUrlParams, type ExchangeParams, HumanAuthClient, type OAuthClientConfig, type RefreshParams, type RpContextResult, type SignOutParams, type SilentRenewParams, type TokenSet, type UserInfo, type VerifyParams, type VerifyResult, buildEndSessionUrl, exchangeCodeForTokens, generatePkcePair, getRpContext, getUser, getUserInfo, handleCallback, handleSilentCallback, refreshAccessToken, signIn, signOut, silentRenew, startAutoRefresh, verify };
+export { type AgentRegistrationFinalized, type AgentRegistrationProof, type AgentRegistrationStart, type AgentSummary, type AutoRefreshController, type AutoRefreshParams, type CallbackResult, type EndSessionUrlParams, type ExchangeParams, HumadAgentClient, HumanAuthClient, type OAuthClientConfig, type RefreshParams, type RpContextResult, type SignOutParams, type SilentRenewParams, type TokenSet, type UserInfo, type VerifyParams, type VerifyResult, buildEndSessionUrl, exchangeCodeForTokens, generatePkcePair, getRpContext, getUser, getUserInfo, handleCallback, handleSilentCallback, refreshAccessToken, signIn, signOut, silentRenew, startAutoRefresh, verify };

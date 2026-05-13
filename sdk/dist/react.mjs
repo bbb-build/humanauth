@@ -1,14 +1,61 @@
 "use client";
 
 // humanauth-react.tsx
-import { useState, useCallback, useEffect } from "react";
-import { Fragment, jsx, jsxs } from "react/jsx-runtime";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+
+// src/agents.ts
 var DEFAULT_API_URL = "https://humanauth.vercel.app";
+var HumadAgentClient = class {
+  constructor(params) {
+    this.accessToken = params.accessToken;
+    this.apiUrl = (params.apiUrl || DEFAULT_API_URL).replace(/\/+$/, "");
+  }
+  async startAgentRegistration() {
+    return this.request("/api/v1/agents", {
+      method: "POST"
+    });
+  }
+  async finalizeAgentRegistration(address, proof) {
+    return this.request(
+      `/api/v1/agents/${encodeURIComponent(address)}/finalize`,
+      {
+        method: "POST",
+        body: JSON.stringify(proof)
+      }
+    );
+  }
+  async listAgents() {
+    const data = await this.request("/api/v1/agents", {
+      method: "GET"
+    });
+    return data.agents;
+  }
+  async request(path, init) {
+    const res = await fetch(`${this.apiUrl}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${this.accessToken}`,
+        ...init.headers
+      }
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ error: res.statusText }));
+      const message = typeof error.error === "string" ? error.error : typeof error.message === "string" ? error.message : "Humad agent API request failed";
+      throw new Error(message);
+    }
+    return res.json();
+  }
+};
+
+// humanauth-react.tsx
+import { Fragment, jsx, jsxs } from "react/jsx-runtime";
+var DEFAULT_API_URL2 = "https://humanauth.vercel.app";
 function HumanAuth({
   appId,
   apiKey,
   action = "humanauth-verify",
-  apiUrl = DEFAULT_API_URL,
+  apiUrl = DEFAULT_API_URL2,
   verificationLevel = "orb",
   onVerified,
   onError,
@@ -154,6 +201,63 @@ function HumanAuth({
     }
   );
 }
+function AuthorizeAgent({
+  accessToken,
+  apiUrl,
+  pendingProof,
+  onAuthorized,
+  onError,
+  label,
+  className
+}) {
+  const [start, setStart] = useState(null);
+  const [finalizing, setFinalizing] = useState(false);
+  const finalizedProofRef = useRef(null);
+  const onAuthorizedRef = useRef(onAuthorized);
+  const onErrorRef = useRef(onError);
+  const client = useMemo(() => new HumadAgentClient({ accessToken, apiUrl }), [accessToken, apiUrl]);
+  useEffect(() => {
+    onAuthorizedRef.current = onAuthorized;
+    onErrorRef.current = onError;
+  }, [onAuthorized, onError]);
+  useEffect(() => {
+    let cancelled = false;
+    setStart(null);
+    setFinalizing(false);
+    finalizedProofRef.current = null;
+    client.startAgentRegistration().then((result) => {
+      if (!cancelled) setStart(result);
+    }).catch((err) => {
+      if (!cancelled) onErrorRef.current?.(err instanceof Error ? err : new Error(String(err)));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [client]);
+  useEffect(() => {
+    if (!start || !pendingProof) return;
+    const proofKey = JSON.stringify({
+      address: start.agent_address,
+      proof: pendingProof
+    });
+    if (finalizedProofRef.current === proofKey) return;
+    finalizedProofRef.current = proofKey;
+    setFinalizing(true);
+    client.finalizeAgentRegistration(start.agent_address, pendingProof).then((result) => onAuthorizedRef.current(result)).catch((err) => onErrorRef.current?.(err instanceof Error ? err : new Error(String(err)))).finally(() => setFinalizing(false));
+  }, [client, pendingProof, start]);
+  if (!start) {
+    return /* @__PURE__ */ jsx("div", { className, children: "Loading..." });
+  }
+  return /* @__PURE__ */ jsxs("div", { className, children: [
+    label && /* @__PURE__ */ jsx("div", { children: label }),
+    /* @__PURE__ */ jsx("img", { src: start.qr_data, alt: "Authorize agent with World App" }),
+    /* @__PURE__ */ jsxs("div", { children: [
+      "Agent: ",
+      start.agent_address
+    ] }),
+    finalizing && /* @__PURE__ */ jsx("div", { children: "Finalizing..." })
+  ] });
+}
 function HumanAuthWithIDKit({
   idkit,
   rpContext,
@@ -216,7 +320,7 @@ function HumanAuthWithIDKit({
   ] });
 }
 async function verifyWithHumanAuth(params) {
-  const { apiKey, apiUrl = DEFAULT_API_URL, ...body } = params;
+  const { apiKey, apiUrl = DEFAULT_API_URL2, ...body } = params;
   const res = await fetch(`${apiUrl}/api/verify`, {
     method: "POST",
     headers: {
@@ -232,6 +336,7 @@ async function verifyWithHumanAuth(params) {
   return res.json();
 }
 export {
+  AuthorizeAgent,
   HumanAuth,
   verifyWithHumanAuth
 };
