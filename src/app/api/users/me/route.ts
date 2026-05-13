@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getOwnerId, unauthorized } from "@/lib/auth-helpers";
 import { rateLimit } from "@/lib/rate-limit";
-import { getUserEmail } from "@/lib/email-store";
+import { getUserEmail, setUserEmail } from "@/lib/email-store";
+import { validateEmail } from "@/lib/email-validator";
 
 // 認証中ユーザー（JWT.sub = nullifier_hash）の自プロフィール取得・更新。
 // ハンドル変更だけは別ルート /api/users/me/handle に分離（バリデーションが重いため）。
@@ -83,7 +84,27 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
-  if (Object.keys(updates).length === 0) {
+  // email は ha_users.email を直接 update できない (暗号化境界が email-store.ts)。
+  // 一旦受け取りだけ済ませ、本体 update の後で setUserEmail を呼ぶ。
+  // null/"" でクリア、文字列なら validateEmail → setUserEmail。
+  let emailUpdate: { value: string | null } | undefined;
+  if ("email" in body) {
+    const v = body.email;
+    if (v === null || v === "") {
+      emailUpdate = { value: null };
+    } else {
+      const result = validateEmail(v);
+      if (!result.ok || !result.normalized) {
+        return NextResponse.json(
+          { error: result.message ?? "Invalid email" },
+          { status: 400 },
+        );
+      }
+      emailUpdate = { value: result.normalized };
+    }
+  }
+
+  if (Object.keys(updates).length === 0 && !emailUpdate) {
     return NextResponse.json(
       { error: "No updatable fields provided" },
       { status: 400 },
@@ -91,16 +112,52 @@ export async function PATCH(req: NextRequest) {
   }
 
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("ha_users")
-    .update(updates)
-    .eq("nullifier_hash", nullifier)
-    .select(SELECT_COLS)
-    .single();
 
-  if (error || !data) {
-    return NextResponse.json({ error: "Update failed" }, { status: 500 });
+  // 自レコードの取得 (id が必要 / email 更新が無くても整合のため毎回 select)
+  let row: { id: string; email_verified?: boolean | null } | null = null;
+
+  if (Object.keys(updates).length > 0) {
+    const { data, error } = await supabase
+      .from("ha_users")
+      .update(updates)
+      .eq("nullifier_hash", nullifier)
+      .select(SELECT_COLS)
+      .single();
+    if (error || !data) {
+      return NextResponse.json({ error: "Update failed" }, { status: 500 });
+    }
+    row = data as { id: string; email_verified?: boolean | null };
+  } else {
+    const { data, error } = await supabase
+      .from("ha_users")
+      .select(SELECT_COLS)
+      .eq("nullifier_hash", nullifier)
+      .single();
+    if (error || !data) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    row = data as { id: string; email_verified?: boolean | null };
   }
-  const user = await attachEmail(data as { id: string; email_verified?: boolean | null });
+
+  // email は自己申告のため email_verified は常に false にリセットする。
+  // 検証メールフロー等が後続 PR で入った時点で true に上書きされる想定。
+  if (emailUpdate) {
+    const ok = await setUserEmail(row.id, emailUpdate.value, { verified: false });
+    if (!ok) {
+      return NextResponse.json({ error: "Failed to update email" }, { status: 500 });
+    }
+    // setUserEmail 後に最新値を再 select (email_verified=false 反映後)
+    const { data: refetched, error: refetchErr } = await supabase
+      .from("ha_users")
+      .select(SELECT_COLS)
+      .eq("id", row.id)
+      .single();
+    if (refetchErr || !refetched) {
+      return NextResponse.json({ error: "Refetch failed after email update" }, { status: 500 });
+    }
+    row = refetched as { id: string; email_verified?: boolean | null };
+  }
+
+  const user = await attachEmail(row);
   return NextResponse.json({ user });
 }
