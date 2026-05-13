@@ -8,7 +8,7 @@ import {
   getConsent,
   consentCoversRequest,
 } from "@/lib/oauth";
-import { getSsoUserId } from "@/lib/sso-session";
+import { getSsoUserId, revokeSsoSession } from "@/lib/sso-session";
 import { logger, errCtx } from "@/lib/logger";
 
 // OAuth Authorization Endpoint
@@ -22,6 +22,7 @@ import { logger, errCtx } from "@/lib/logger";
 //  - SSOセッション無し → /oauth/signin にリダイレクト（authorize URLを?return_toで保持）
 //  - SSO有り && consent済み → 即code発行 → redirect_uri にリダイレクト
 //  - SSO有り && consent未済み → /oauth/consent にリダイレクト
+//  - prompt=login → 既存SSOセッションを破棄して /oauth/signin にリダイレクト（OIDC仕様）
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
@@ -71,15 +72,25 @@ export async function GET(req: NextRequest) {
   }
 
   // SSOセッション取得
-  const userId = await getSsoUserId();
+  let userId = await getSsoUserId();
+
+  // prompt=login: OIDC仕様 — 既存SSOセッションを破棄して再認証を強制
+  if (userId && prompt === "login") {
+    await revokeSsoSession();
+    userId = null;
+  }
 
   if (!userId) {
     if (prompt === "none") {
       return redirectError(redirectUri, state, "login_required", "User is not signed in");
     }
     // 未ログイン → サインイン画面へ。authorizeのURLをreturn_toに保存
+    // prompt=login はreturn_toから除外（再認証後の再ログインループ防止）
     const signinUrl = new URL("/oauth/signin", req.url);
-    signinUrl.searchParams.set("return_to", url.pathname + url.search);
+    const returnToParams = new URLSearchParams(url.search);
+    if (prompt === "login") returnToParams.delete("prompt");
+    const returnToQuery = returnToParams.toString();
+    signinUrl.searchParams.set("return_to", url.pathname + (returnToQuery ? `?${returnToQuery}` : ""));
     return NextResponse.redirect(signinUrl);
   }
 
