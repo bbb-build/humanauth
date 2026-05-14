@@ -7,6 +7,7 @@
 
 **Live IdP:** [humanauth.vercel.app](https://humanauth.vercel.app) *(domain placeholder — will be migrated to humad.* later)*
 **Live demo RP:** [humad-demo.vercel.app](https://humad-demo.vercel.app)
+**Agent checkout demo (L3):** [humanauth.vercel.app/demo/agent-checkout](https://humanauth.vercel.app/demo/agent-checkout)
 **Docs:** [humanauth.vercel.app/docs](https://humanauth.vercel.app/docs)
 **npm:** [humad-sdk](https://www.npmjs.com/package/humad-sdk)
 
@@ -96,6 +97,8 @@ Your App ──┬─► Humad OIDC (Login with Humad) ──► World ID
 | `/api/apps` | GET/POST | Manage apps (JWT auth) |
 | `/api/apps/:id/keys` | GET/POST | Manage API keys |
 | `/api/dashboard/stats` | GET | Dashboard analytics |
+| `/api/v1/agents` | GET/POST | List / start L3 agent registration (Bearer access token) |
+| `/api/v1/agents/:address/finalize` | POST | Finalize L3 agent registration on AgentBook |
 
 ## Stack
 
